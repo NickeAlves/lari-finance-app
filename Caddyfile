@@ -1,0 +1,15 @@
+{
+	auto_https off
+}
+
+:{$PORT} {
+	root * /srv
+	encode zstd gzip
+
+	try_files {path} /index.html
+	file_server
+
+	header {
+		-Server
+	}
+}

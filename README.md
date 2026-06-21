@@ -1,59 +1,95 @@
 # LariFinanceApp
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.16.
+Este proyecto se generó con [Angular CLI](https://github.com/angular/angular-cli) versión 21.2.16.
 
-## Development server
+## Servidor de desarrollo
 
-To start a local development server, run:
+Para iniciar un servidor de desarrollo local, ejecuta:
 
 ```bash
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Cuando el servidor esté en marcha, abre el navegador y entra en `http://localhost:4200/`. La aplicación se recargará automáticamente cada vez que modifiques algún archivo fuente.
 
-## Code scaffolding
+## Generación de código
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Angular CLI incluye herramientas de generación de código. Para crear un componente nuevo, ejecuta:
 
 ```bash
 ng generate component component-name
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Para ver la lista completa de esquemas disponibles, como `components`, `directives` o `pipes`, ejecuta:
 
 ```bash
 ng generate --help
 ```
 
-## Building
+## Compilación
 
-To build the project run:
+Para compilar el proyecto, ejecuta:
 
 ```bash
 ng build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Este comando compila el proyecto y guarda los artefactos en el directorio `dist/`. Por defecto, la compilación de producción optimiza la aplicación para mejorar rendimiento y velocidad.
 
-## Running unit tests
+## Variables de entorno
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Copia `.env.example` a `.env` cuando quieras sobrescribir la configuración local:
+
+```bash
+cp .env.example .env
+```
+
+Las variables principales son:
+
+- `API_BASE_URL`: URL base de la API. El frontend construye las rutas a partir de ella, como `${API_BASE_URL}/auth/login`, `${API_BASE_URL}/auth/register`, `${API_BASE_URL}/finance/calculate` y `${API_BASE_URL}/finance/rates`.
+- `LARI_LOCALE` y `LARI_CURRENCY`: locale y moneda usados en los formateadores.
+- `LARI_HERO_IMAGE_URL`: imagen que se muestra en la parte superior de la aplicación.
+- `LARI_IVA_RATE`, `LARI_FIXED_EXPENSES_RATE`, `LARI_PRODUCTS_RATE`, `LARI_SALARY_RATE` y `LARI_ANNUAL_TAX_RESERVE_RATE`: porcentajes de cálculo.
+- `APP_PORT`, `PORT` y `DOCKER_IMAGE`: configuración de Docker Compose/contenedor.
+
+El archivo `public/env.js` se genera automáticamente con `npm start` y `npm run build`; en Docker se recrea al iniciar el contenedor a partir de las variables reales del entorno.
+
+## Docker y Railway
+
+Para ejecutar localmente con Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+La aplicación estará disponible en el puerto definido por `APP_PORT`.
+
+Para detener el contenedor:
+
+```bash
+docker compose down
+```
+
+En Railway, publica el repositorio con el `Dockerfile` en la raíz. Railway detecta el `Dockerfile` automáticamente e inyecta la variable `PORT`; Caddy usa ese puerto en tiempo de ejecución. Configura también `API_BASE_URL` y las variables `LARI_*` en el entorno de Railway cuando necesites cambiar endpoint, moneda, imagen o porcentajes sin modificar el código.
+
+## Pruebas unitarias
+
+Para ejecutar las pruebas unitarias con [Vitest](https://vitest.dev/), usa este comando:
 
 ```bash
 ng test
 ```
 
-## Running end-to-end tests
+## Pruebas end-to-end
 
-For end-to-end (e2e) testing, run:
+Para ejecutar pruebas end-to-end (e2e), usa:
 
 ```bash
 ng e2e
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Angular CLI no incluye un framework end-to-end por defecto. Puedes elegir el que mejor se adapte a tus necesidades.
 
-## Additional Resources
+## Recursos adicionales
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Para más información sobre Angular CLI, incluida la referencia detallada de comandos, visita la página [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli).
