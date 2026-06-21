@@ -5,6 +5,10 @@
 /tmp
 /out-tsc
 /bazel-out
+/public/env.js
+.env
+.env.*
+!.env.example
 
 # Node
 /node_modules
