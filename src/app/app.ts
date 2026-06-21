@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -29,8 +29,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
+import { AuthTokenStore } from './services/auth-token.store';
 
-type PaymentMethod = 'Efectivo' | 'Bizum' | 'Tarjeta' | 'Transferencia';
+type PaymentMethod = 'Efectivo' | 'Bizum' | 'Tarjeta' | 'Transferencia' | 'Otro';
 type PeriodMode = 'day' | 'week' | 'month' | 'custom';
 type AuthMode = 'login' | 'register';
 
@@ -49,7 +50,32 @@ interface PaymentEntry extends FinanceCalculation {
   clientName: string;
   value: number;
   paymentMethod: PaymentMethod;
+  notes?: string;
   status: 'synced' | 'local';
+}
+
+interface IncomeEntryResponse {
+  id: string;
+  date: string;
+  clientName: string;
+  amount: number;
+  paymentMethod: string;
+  paymentMethodLabel: string;
+  vatAmount: number;
+  fixedExpensesAmount: number;
+  productsAmount: number;
+  salaryAmount: number;
+  annualTaxReserveAmount: number;
+  dailyTotal: number;
+  notes: string | null;
+}
+
+interface IncomeEntryRequest {
+  date: string;
+  clientName: string;
+  amount: number;
+  paymentMethod: string;
+  notes?: string | null;
 }
 
 interface ReportTotals extends FinanceCalculation {
@@ -106,9 +132,17 @@ interface ApiErrorResponse {
   message?: string;
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = ['Efectivo', 'Bizum', 'Tarjeta', 'Transferencia'];
+const PAYMENT_METHODS: PaymentMethod[] = ['Efectivo', 'Bizum', 'Tarjeta', 'Transferencia', 'Otro'];
 const STORAGE_KEY = 'lari-finance-payments-v1';
 const AUTH_STORAGE_KEY = 'lari-finance-auth-v1';
+
+const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
+  Efectivo: 'EFECTIVO',
+  Bizum: 'BIZUM',
+  Tarjeta: 'TARJETA',
+  Transferencia: 'TRANSFERENCIA',
+  Otro: 'OTRO',
+};
 
 @Component({
   selector: 'app-root',
@@ -142,7 +176,9 @@ const AUTH_STORAGE_KEY = 'lari-finance-auth-v1';
 })
 export class App {
   private readonly http = inject(HttpClient);
+  private readonly authTokenStore = inject(AuthTokenStore);
   private readonly financeRates = appSettings.rates;
+  private readonly saveTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly moneyFormatter = new Intl.NumberFormat(appSettings.locale, {
     style: 'currency',
     currency: appSettings.currency,
@@ -325,6 +361,8 @@ export class App {
 
     if (this.authSession()?.token) {
       this.validateStoredSession();
+    } else {
+      this.authChecking.set(false);
     }
   }
 
@@ -403,6 +441,7 @@ export class App {
   logout(message = ''): void {
     this.authSession.set(null);
     this.authChecking.set(false);
+    this.authTokenStore.clear();
     this.browserStorage()?.removeItem(AUTH_STORAGE_KEY);
     this.apiState.set('fallback');
     this.loginForm.update((form) => ({ ...form, password: '' }));
@@ -437,7 +476,19 @@ export class App {
   }
 
   removeEntry(id: string): void {
-    this.entries.update((entries) => entries.filter((entry) => entry.id !== id));
+    const entry = this.entries().find((e) => e.id === id);
+
+    if (entry?.status === 'synced') {
+      this.http.delete(`${appSettings.entriesUrl}/${id}`).subscribe({
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 401 || error.status === 403) {
+            this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+          }
+        },
+      });
+    }
+
+    this.entries.update((entries) => entries.filter((e) => e.id !== id));
   }
 
   updateEntry<K extends keyof PaymentEntry>(id: string, key: K, value: PaymentEntry[K]): void {
@@ -447,6 +498,13 @@ export class App {
 
     if (key === 'value') {
       this.calculateEntry(id, Number(value));
+    } else if (key === 'paymentMethod' || key === 'date') {
+      const entry = this.entries().find((e) => e.id === id);
+      if (entry?.status === 'synced') {
+        this.putEntry(entry);
+      }
+    } else if (key === 'clientName' || key === 'notes') {
+      this.debounceSync(id);
     }
   }
 
@@ -480,11 +538,6 @@ export class App {
   }
 
   refreshCalculations(): void {
-    if (!this.authenticated()) {
-      this.logout('Inicia sesión de nuevo para recalcular con la API.');
-      return;
-    }
-
     for (const entry of this.entries()) {
       this.calculateEntry(entry.id, entry.value);
     }
@@ -594,23 +647,15 @@ export class App {
 
   private calculateEntry(id: string, amount: number): void {
     const cleanAmount = Number.isFinite(amount) ? amount : 0;
-    const headers = this.authHeaders();
-
-    if (!headers) {
-      this.logout('Inicia sesión de nuevo para calcular con la API.');
-      return;
-    }
 
     this.http
-      .post<FinanceCalculationResponse>(
-        appSettings.financeApiUrl,
-        { amount: cleanAmount },
-        { headers },
-      )
+      .post<FinanceCalculationResponse>(appSettings.financeApiUrl, { amount: cleanAmount })
       .subscribe({
         next: (calculation) => {
           this.apiState.set('online');
-          this.applyCalculation(id, calculation, 'synced');
+          const currentStatus = this.entries().find((e) => e.id === id)?.status ?? 'local';
+          this.applyCalculation(id, calculation, currentStatus);
+          this.trySyncEntry(id);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 401 || error.status === 403) {
@@ -622,6 +667,101 @@ export class App {
           this.applyCalculation(id, this.localCalculation(cleanAmount), 'local');
         },
       });
+  }
+
+  private trySyncEntry(id: string): void {
+    const entry = this.entries().find((e) => e.id === id);
+    if (!entry || !entry.clientName.trim() || entry.value <= 0) return;
+
+    if (entry.status === 'synced') {
+      this.putEntry(entry);
+    } else {
+      this.postEntry(entry);
+    }
+  }
+
+  private postEntry(entry: PaymentEntry): void {
+    const body: IncomeEntryRequest = {
+      date: entry.date,
+      clientName: entry.clientName.trim(),
+      amount: entry.value,
+      paymentMethod: PAYMENT_METHOD_ENUM[entry.paymentMethod],
+      notes: entry.notes ?? null,
+    };
+
+    this.http.post<IncomeEntryResponse>(appSettings.entriesUrl, body).subscribe({
+      next: (response) => {
+        this.entries.update((entries) =>
+          entries.map((e) =>
+            e.id === entry.id ? { ...this.mapIncomeEntryResponse(response), status: 'synced' } : e,
+          ),
+        );
+      },
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 401 || error.status === 403) {
+          this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+        }
+      },
+    });
+  }
+
+  private putEntry(entry: PaymentEntry): void {
+    const body: IncomeEntryRequest = {
+      date: entry.date,
+      clientName: entry.clientName.trim() || 'Sin nombre',
+      amount: entry.value > 0 ? entry.value : 0.01,
+      paymentMethod: PAYMENT_METHOD_ENUM[entry.paymentMethod],
+      notes: entry.notes ?? null,
+    };
+
+    this.http.put<IncomeEntryResponse>(`${appSettings.entriesUrl}/${entry.id}`, body).subscribe({
+      next: (response) => {
+        this.entries.update((entries) =>
+          entries.map((e) =>
+            e.id === entry.id ? { ...this.mapIncomeEntryResponse(response), status: 'synced' } : e,
+          ),
+        );
+      },
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 401 || error.status === 403) {
+          this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+        }
+      },
+    });
+  }
+
+  private debounceSync(id: string): void {
+    const timeout = this.saveTimeouts.get(id);
+    if (timeout !== undefined) clearTimeout(timeout);
+
+    this.saveTimeouts.set(
+      id,
+      setTimeout(() => {
+        this.saveTimeouts.delete(id);
+        const entry = this.entries().find((e) => e.id === id);
+        if (entry?.status === 'synced') {
+          this.putEntry(entry);
+        }
+      }, 500),
+    );
+  }
+
+  private mapIncomeEntryResponse(r: IncomeEntryResponse): PaymentEntry {
+    return {
+      id: r.id,
+      date: r.date,
+      clientName: r.clientName,
+      value: Number(r.amount),
+      paymentMethod: r.paymentMethodLabel as PaymentMethod,
+      notes: r.notes ?? undefined,
+      iva: Number(r.vatAmount),
+      fixedExpenses: Number(r.fixedExpensesAmount),
+      products: Number(r.productsAmount),
+      salary: Number(r.salaryAmount),
+      annualTaxReserve: Number(r.annualTaxReserveAmount),
+      totalDay: Number(r.dailyTotal),
+      status: 'synced',
+    };
   }
 
   private applyCalculation(
@@ -756,24 +896,43 @@ export class App {
   private saveAuthSession(session: AuthSession): void {
     this.authSession.set(session);
     this.authChecking.set(false);
+    this.authTokenStore.set(session.token, session.tokenType || 'Bearer');
     this.browserStorage()?.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+    this.loadEntriesFromApi();
   }
 
   private validateStoredSession(): void {
-    const headers = this.authHeaders();
+    const session = this.authSession();
 
-    if (!headers) {
+    if (!session?.token) {
       this.logout();
       return;
     }
 
-    this.http.get<FinanceRates>(appSettings.financeRatesUrl, { headers }).subscribe({
+    this.authTokenStore.set(session.token, session.tokenType || 'Bearer');
+
+    this.http.get<FinanceRates>(appSettings.financeRatesUrl).subscribe({
       next: () => {
         this.authChecking.set(false);
         this.apiState.set('online');
+        this.loadEntriesFromApi();
       },
       error: () => {
         this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+      },
+    });
+  }
+
+  private loadEntriesFromApi(): void {
+    this.http.get<IncomeEntryResponse[]>(appSettings.entriesUrl).subscribe({
+      next: (apiEntries) => {
+        this.entries.set(apiEntries.map((r) => this.mapIncomeEntryResponse(r)));
+        this.apiState.set('online');
+      },
+      error: (error: HttpErrorResponse) => {
+        if (error.status === 401 || error.status === 403) {
+          this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+        }
       },
     });
   }
@@ -787,18 +946,6 @@ export class App {
     } catch {
       return null;
     }
-  }
-
-  private authHeaders(): HttpHeaders | null {
-    const session = this.authSession();
-
-    if (!session?.token) {
-      return null;
-    }
-
-    return new HttpHeaders({
-      Authorization: `${session.tokenType || 'Bearer'} ${session.token}`,
-    });
   }
 
   private authErrorMessage(error: HttpErrorResponse): string {
