@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DEFAULT_PORT: ${PORT}
+    image: ${DOCKER_IMAGE}
+    ports:
+      - '${APP_PORT}:${PORT}'
+    environment:
+      PORT: ${PORT}
+      API_BASE_URL: ${API_BASE_URL}
+      LARI_LOCALE: ${LARI_LOCALE}
+      LARI_CURRENCY: ${LARI_CURRENCY}
+      LARI_HERO_IMAGE_URL: ${LARI_HERO_IMAGE_URL}
+      LARI_IVA_RATE: ${LARI_IVA_RATE}
+      LARI_FIXED_EXPENSES_RATE: ${LARI_FIXED_EXPENSES_RATE}
+      LARI_PRODUCTS_RATE: ${LARI_PRODUCTS_RATE}
+      LARI_SALARY_RATE: ${LARI_SALARY_RATE}
+      LARI_ANNUAL_TAX_RESERVE_RATE: ${LARI_ANNUAL_TAX_RESERVE_RATE}
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:${PORT}/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
