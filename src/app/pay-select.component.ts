@@ -7,12 +7,12 @@ import {
   Output,
   signal,
 } from '@angular/core';
-import { LucideAngularModule, LucideChevronDown, LucideCheck } from '@lucide/angular';
+import { LucideChevronDown, LucideCheck } from '@lucide/angular';
 
 @Component({
   selector: 'app-pay-select',
   standalone: true,
-  imports: [LucideAngularModule],
+  imports: [LucideChevronDown, LucideCheck],
   template: `
     <div class="pay-select">
       <button
