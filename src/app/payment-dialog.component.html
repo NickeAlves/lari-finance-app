@@ -1,0 +1,103 @@
+@if (modal) {
+  <div class="dialog-overlay" (click)="close.emit()"></div>
+  <div
+    class="dialog-content"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialog-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="dialog-header">
+      <h2 class="dialog-title" id="dialog-title">
+        {{ form.mode === 'create' ? 'Nuevo pago' : 'Editar pago' }}
+      </h2>
+      <button class="dialog-close" type="button" (click)="close.emit()" aria-label="Cerrar" [disabled]="saving">
+        <svg lucideX size="18"></svg>
+      </button>
+    </div>
+
+    <div class="dialog-body">
+      <label class="field">
+        <span>Nombre de la clienta</span>
+        <input
+          type="text"
+          placeholder="Nombre"
+          [(ngModel)]="form.clientName"
+          [disabled]="saving"
+          autocomplete="off"
+        />
+      </label>
+
+      <div class="dialog-row">
+        <label class="field">
+          <span>Fecha</span>
+          <input
+            type="date"
+            [(ngModel)]="form.date"
+            [disabled]="saving"
+          />
+        </label>
+        <label class="field">
+          <span>Importe (€)</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            [(ngModel)]="form.value"
+            [disabled]="saving"
+          />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Forma de pago</span>
+        <app-pay-select
+          [options]="paymentMethods"
+          [value]="form.paymentMethod"
+          (valueChange)="form.paymentMethod = $any($event)"
+        />
+      </label>
+
+      <label class="field">
+        <span>Notas <small>(opcional)</small></span>
+        <textarea
+          rows="2"
+          placeholder="Observaciones..."
+          [(ngModel)]="form.notes"
+          [disabled]="saving"
+        ></textarea>
+      </label>
+
+      @if (error) {
+        <p class="dialog-error" role="alert">
+          <svg lucideAlertCircle size="15"></svg>
+          {{ error }}
+        </p>
+      }
+    </div>
+
+    <div class="dialog-footer">
+      <button
+        class="btn btn-secondary"
+        type="button"
+        (click)="close.emit()"
+        [disabled]="saving"
+      >
+        Cancelar
+      </button>
+      <button
+        class="btn btn-primary"
+        type="button"
+        (click)="submit()"
+        [disabled]="saving"
+      >
+        @if (saving) {
+          <svg lucideLoaderCircle size="15" class="spin"></svg>
+          Guardando...
+        } @else {
+          {{ form.mode === 'create' ? 'Añadir pago' : 'Guardar cambios' }}
+        }
+      </button>
+    </div>
+  </div>
+}

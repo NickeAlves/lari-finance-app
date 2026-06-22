@@ -748,69 +748,11 @@
   </div>
 }
 
-@if (entryModal(); as modal) {
-  <div class="modal-backdrop" (click)="closeEntryModal()"></div>
-  <div class="modal-panel" role="dialog" aria-modal="true">
-    <div class="modal-header">
-      <h2>{{ modal.mode === 'create' ? 'Nuevo pago' : 'Editar pago' }}</h2>
-      <button class="icon-btn" type="button" (click)="closeEntryModal()">
-        <svg lucideX size="18"></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <label class="field">
-        <span>Nombre de la clienta</span>
-        <input
-          type="text"
-          placeholder="Nombre"
-          [ngModel]="modal.clientName"
-          (ngModelChange)="updateModal('clientName', $event)"
-        />
-      </label>
-      <div class="modal-row">
-        <label class="field">
-          <span>Fecha</span>
-          <input
-            type="date"
-            [ngModel]="modal.date"
-            (ngModelChange)="updateModal('date', $event)"
-          />
-        </label>
-        <label class="field">
-          <span>Importe (€)</span>
-          <input
-            class="money-input"
-            type="number"
-            min="0"
-            step="0.01"
-            [ngModel]="modal.value"
-            (ngModelChange)="updateModal('value', +$event)"
-          />
-        </label>
-      </div>
-      <label class="field">
-        <span>Forma de pago</span>
-        <app-pay-select
-          [options]="paymentMethods"
-          [value]="modal.paymentMethod"
-          (valueChange)="updateModal('paymentMethod', $any($event))"
-        />
-      </label>
-      <label class="field">
-        <span>Notas <small>(opcional)</small></span>
-        <textarea
-          rows="2"
-          placeholder="Observaciones..."
-          [ngModel]="modal.notes"
-          (ngModelChange)="updateModal('notes', $event)"
-        ></textarea>
-      </label>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" type="button" (click)="closeEntryModal()">Cancelar</button>
-      <button class="btn btn-primary" type="button" (click)="saveEntryModal()">
-        {{ modal.mode === 'create' ? 'Añadir pago' : 'Guardar cambios' }}
-      </button>
-    </div>
-  </div>
-}
+<app-payment-dialog
+  [modal]="entryModal()"
+  [paymentMethods]="paymentMethods"
+  [saving]="savingModal()"
+  [error]="modalError()"
+  (save)="saveEntryModal($event)"
+  (close)="closeEntryModal()"
+/>

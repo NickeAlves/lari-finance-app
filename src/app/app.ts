@@ -28,16 +28,15 @@ import {
   LucideUser,
   LucideUserPlus,
   LucideWallet,
-  LucideX,
 } from '@lucide/angular';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
+import { PaymentDialogComponent } from './payment-dialog.component';
+import { type EntryModalState, type PaymentMethod } from './payment.types';
 import { PaySelectComponent } from './pay-select.component';
 import { AuthTokenStore } from './services/auth-token.store';
-
-type PaymentMethod = 'Efectivo' | 'Bizum' | 'Tarjeta' | 'Transferencia' | 'Otro';
 type PeriodMode = 'day' | 'week' | 'month' | 'custom';
 type AuthMode = 'login' | 'register';
 
@@ -137,16 +136,6 @@ interface RegisterForm {
 interface ApiErrorResponse {
   message?: string;
 }
-interface EntryModalState {
-  mode: 'create' | 'edit';
-  id: string;
-  clientName: string;
-  value: number;
-  paymentMethod: PaymentMethod;
-  date: string;
-  notes: string;
-}
-
 
 const PAYMENT_METHODS: PaymentMethod[] = ['Efectivo', 'Bizum', 'Tarjeta', 'Transferencia', 'Otro'];
 const STORAGE_KEY = 'lari-finance-payments-v1';
@@ -190,8 +179,8 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideUser,
     LucideUserPlus,
     LucideWallet,
-    LucideX,
     PaySelectComponent,
+    PaymentDialogComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -257,6 +246,8 @@ export class App {
   readonly loginError = signal('');
   readonly contextMenu = signal<{ id: string; x: number; y: number } | null>(null);
   readonly entryModal = signal<EntryModalState | null>(null);
+  readonly savingModal = signal(false);
+  readonly modalError = signal<string | null>(null);
 
   readonly authenticated = computed(
     () => Boolean(this.authSession()?.token) && !this.authChecking(),
@@ -591,50 +582,64 @@ export class App {
     });
   }
 
-  updateModal<K extends keyof EntryModalState>(key: K, value: EntryModalState[K]): void {
-    this.entryModal.update((m) => (m ? { ...m, [key]: value } : m));
-  }
+  saveEntryModal(state: EntryModalState): void {
+    this.savingModal.set(true);
+    this.modalError.set(null);
 
-  saveEntryModal(): void {
-    const modal = this.entryModal();
-    if (!modal) return;
+    const body: IncomeEntryRequest = {
+      date: state.date,
+      clientName: state.clientName.trim(),
+      amount: state.value,
+      paymentMethod: PAYMENT_METHOD_ENUM[state.paymentMethod],
+      notes: state.notes || null,
+    };
 
-    if (modal.mode === 'create') {
-      const entry: PaymentEntry = {
-        id: modal.id,
-        date: modal.date,
-        clientName: modal.clientName,
-        value: modal.value,
-        paymentMethod: modal.paymentMethod,
-        notes: modal.notes || undefined,
-        status: 'local',
-        ...this.localCalculation(modal.value),
-      };
-      this.entries.update((entries) => [entry, ...entries]);
-      this.calculateEntry(modal.id, modal.value);
+    if (state.mode === 'create') {
+      this.http.post<IncomeEntryResponse>(appSettings.entriesUrl, body).subscribe({
+        next: (response) => {
+          this.entries.update((entries) => [this.mapIncomeEntryResponse(response), ...entries]);
+          this.entryModal.set(null);
+          this.savingModal.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.savingModal.set(false);
+          if (err.status === 401 || err.status === 403) {
+            this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+            return;
+          }
+          const apiErr = err.error as ApiErrorResponse;
+          this.modalError.set(apiErr?.message ?? 'Error al guardar. Inténtalo de nuevo.');
+        },
+      });
     } else {
-      this.entries.update((entries) =>
-        entries.map((entry) =>
-          entry.id === modal.id
-            ? {
-                ...entry,
-                clientName: modal.clientName,
-                value: modal.value,
-                paymentMethod: modal.paymentMethod,
-                date: modal.date,
-                notes: modal.notes || undefined,
-              }
-            : entry,
-        ),
-      );
-      this.calculateEntry(modal.id, modal.value);
+      this.http
+        .put<IncomeEntryResponse>(`${appSettings.entriesUrl}/${state.id}`, body)
+        .subscribe({
+          next: (response) => {
+            const updated = this.mapIncomeEntryResponse(response);
+            this.entries.update((entries) =>
+              entries.map((e) => (e.id === state.id ? updated : e)),
+            );
+            this.entryModal.set(null);
+            this.savingModal.set(false);
+          },
+          error: (err: HttpErrorResponse) => {
+            this.savingModal.set(false);
+            if (err.status === 401 || err.status === 403) {
+              this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+              return;
+            }
+            const apiErr = err.error as ApiErrorResponse;
+            this.modalError.set(apiErr?.message ?? 'Error al guardar. Inténtalo de nuevo.');
+          },
+        });
     }
-
-    this.entryModal.set(null);
   }
 
   closeEntryModal(): void {
     this.entryModal.set(null);
+    this.savingModal.set(false);
+    this.modalError.set(null);
   }
 
   updateEntry<K extends keyof PaymentEntry>(id: string, key: K, value: PaymentEntry[K]): void {
