@@ -9,6 +9,8 @@ import {
   LucideChevronDown,
   LucideChevronLeft,
   LucideChevronRight,
+  LucideChevronsLeft,
+  LucideChevronsRight,
   LucideCreditCard,
   LucideDownload,
   LucideFileSpreadsheet,
@@ -17,6 +19,7 @@ import {
   LucideLogIn,
   LucideLogOut,
   LucideMail,
+  LucidePencil,
   LucidePlus,
   LucideRefreshCw,
   LucideSparkles,
@@ -25,11 +28,13 @@ import {
   LucideUser,
   LucideUserPlus,
   LucideWallet,
+  LucideX,
 } from '@lucide/angular';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
+import { PaySelectComponent } from './pay-select.component';
 import { AuthTokenStore } from './services/auth-token.store';
 
 type PaymentMethod = 'Efectivo' | 'Bizum' | 'Tarjeta' | 'Transferencia' | 'Otro';
@@ -132,6 +137,16 @@ interface RegisterForm {
 interface ApiErrorResponse {
   message?: string;
 }
+interface EntryModalState {
+  mode: 'create' | 'edit';
+  id: string;
+  clientName: string;
+  value: number;
+  paymentMethod: PaymentMethod;
+  date: string;
+  notes: string;
+}
+
 
 const PAYMENT_METHODS: PaymentMethod[] = ['Efectivo', 'Bizum', 'Tarjeta', 'Transferencia', 'Otro'];
 const STORAGE_KEY = 'lari-finance-payments-v1';
@@ -156,6 +171,8 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideChevronDown,
     LucideChevronLeft,
     LucideChevronRight,
+    LucideChevronsLeft,
+    LucideChevronsRight,
     LucideCreditCard,
     LucideDownload,
     LucideFileSpreadsheet,
@@ -164,6 +181,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideLogIn,
     LucideLogOut,
     LucideMail,
+    LucidePencil,
     LucidePlus,
     LucideRefreshCw,
     LucideSparkles,
@@ -172,6 +190,8 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideUser,
     LucideUserPlus,
     LucideWallet,
+    LucideX,
+    PaySelectComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -199,6 +219,7 @@ export class App {
   });
 
   readonly paymentMethods = PAYMENT_METHODS;
+  readonly allPaymentOptions = ['Todas', ...PAYMENT_METHODS];
   readonly weekdays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   readonly heroBackgroundImage = `url("${appSettings.heroImageUrl.replaceAll('"', '\\"')}")`;
   readonly financeLabels = {
@@ -217,7 +238,9 @@ export class App {
   readonly customTo = signal(this.toDateInput(new Date()));
   readonly calendarOpen = signal(false);
   readonly popoverMonth = signal(this.monthStart(new Date()));
-  readonly paymentDropdownOpen = signal(false);
+  readonly popoverViewMode = signal<'calendar' | 'month-picker'>('calendar');
+  readonly calendarViewMode = signal<'calendar' | 'month-picker'>('calendar');
+  readonly popoverDateText = signal<string>('');
   readonly apiState = signal<'online' | 'fallback'>('fallback');
   readonly entries = signal<PaymentEntry[]>(this.loadEntries());
   readonly authSession = signal<AuthSession | null>(this.loadAuthSession());
@@ -232,6 +255,8 @@ export class App {
   });
   readonly authLoading = signal(false);
   readonly loginError = signal('');
+  readonly contextMenu = signal<{ id: string; x: number; y: number } | null>(null);
+  readonly entryModal = signal<EntryModalState | null>(null);
 
   readonly authenticated = computed(
     () => Boolean(this.authSession()?.token) && !this.authChecking(),
@@ -293,6 +318,10 @@ export class App {
   readonly reportTotals = computed(() => this.calculateTotals(this.periodEntries()));
 
   readonly popoverMonthLabel = computed(() => this.monthFormatter.format(this.popoverMonth()));
+  readonly popoverCurrentMonth = computed(() => this.popoverMonth().getMonth());
+  readonly calendarCurrentMonth = computed(() => this.calendarMonth().getMonth());
+
+  readonly monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
   readonly calendarDaysPopover = computed<CalendarDay[]>(() => {
     const month = this.popoverMonth();
@@ -518,6 +547,96 @@ export class App {
     this.entries.update((entries) => entries.filter((e) => e.id !== id));
   }
 
+  openContextMenu(event: MouseEvent, id: string): void {
+    event.preventDefault();
+    this.contextMenu.set({ id, x: event.clientX, y: event.clientY });
+  }
+
+  closeContextMenu(): void {
+    this.contextMenu.set(null);
+  }
+
+  contextMenuDelete(): void {
+    const menu = this.contextMenu();
+    if (menu) {
+      this.removeEntry(menu.id);
+      this.contextMenu.set(null);
+    }
+  }
+
+  openCreateModal(): void {
+    this.entryModal.set({
+      mode: 'create',
+      id: crypto.randomUUID(),
+      clientName: '',
+      value: 0,
+      paymentMethod: 'Efectivo',
+      date: this.selectedDate(),
+      notes: '',
+    });
+  }
+
+  openEditModal(id: string): void {
+    this.closeContextMenu();
+    const entry = this.entries().find((e) => e.id === id);
+    if (!entry) return;
+    this.entryModal.set({
+      mode: 'edit',
+      id,
+      clientName: entry.clientName,
+      value: entry.value,
+      paymentMethod: entry.paymentMethod,
+      date: entry.date,
+      notes: entry.notes ?? '',
+    });
+  }
+
+  updateModal<K extends keyof EntryModalState>(key: K, value: EntryModalState[K]): void {
+    this.entryModal.update((m) => (m ? { ...m, [key]: value } : m));
+  }
+
+  saveEntryModal(): void {
+    const modal = this.entryModal();
+    if (!modal) return;
+
+    if (modal.mode === 'create') {
+      const entry: PaymentEntry = {
+        id: modal.id,
+        date: modal.date,
+        clientName: modal.clientName,
+        value: modal.value,
+        paymentMethod: modal.paymentMethod,
+        notes: modal.notes || undefined,
+        status: 'local',
+        ...this.localCalculation(modal.value),
+      };
+      this.entries.update((entries) => [entry, ...entries]);
+      this.calculateEntry(modal.id, modal.value);
+    } else {
+      this.entries.update((entries) =>
+        entries.map((entry) =>
+          entry.id === modal.id
+            ? {
+                ...entry,
+                clientName: modal.clientName,
+                value: modal.value,
+                paymentMethod: modal.paymentMethod,
+                date: modal.date,
+                notes: modal.notes || undefined,
+              }
+            : entry,
+        ),
+      );
+      this.calculateEntry(modal.id, modal.value);
+    }
+
+    this.entryModal.set(null);
+  }
+
+  closeEntryModal(): void {
+    this.entryModal.set(null);
+  }
+
   updateEntry<K extends keyof PaymentEntry>(id: string, key: K, value: PaymentEntry[K]): void {
     this.entries.update((entries) =>
       entries.map((entry) => (entry.id === id ? { ...entry, [key]: value } : entry)),
@@ -544,6 +663,9 @@ export class App {
   toggleDatePicker(): void {
     if (!this.calendarOpen()) {
       this.popoverMonth.set(this.monthStart(this.parseDate(this.selectedDate())));
+      this.popoverViewMode.set('calendar');
+      const [y, m, d] = this.selectedDate().split('-');
+      this.popoverDateText.set(`${d}/${m}/${y}`);
     }
     this.calendarOpen.update((v) => !v);
   }
@@ -564,16 +686,74 @@ export class App {
     this.calendarOpen.set(false);
   }
 
+  onPopoverDateInput(value: string): void {
+    this.popoverDateText.set(value);
+    const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return;
+    const [, d, m, y] = match.map(Number);
+    const date = new Date(y, m - 1, d);
+    if (isNaN(date.getTime()) || date.getMonth() !== m - 1) return;
+    const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    this.selectedDate.set(iso);
+    this.popoverMonth.set(new Date(y, m - 1, 1));
+    this.calendarMonth.set(new Date(y, m - 1, 1));
+  }
+
+  togglePopoverView(): void {
+    this.popoverViewMode.update((v) => (v === 'calendar' ? 'month-picker' : 'calendar'));
+  }
+
+  toggleCalendarView(): void {
+    this.calendarViewMode.update((v) => (v === 'calendar' ? 'month-picker' : 'calendar'));
+  }
+
+  selectPopoverMonthPick(monthIndex: number): void {
+    const current = this.popoverMonth();
+    this.popoverMonth.set(new Date(current.getFullYear(), monthIndex, 1));
+    this.popoverViewMode.set('calendar');
+  }
+
+  selectCalendarMonthPick(monthIndex: number): void {
+    const current = this.calendarMonth();
+    this.calendarMonth.set(new Date(current.getFullYear(), monthIndex, 1));
+    this.calendarViewMode.set('calendar');
+  }
+
+  popoverPrevYear(): void {
+    const c = this.popoverMonth();
+    this.popoverMonth.set(new Date(c.getFullYear() - 1, c.getMonth(), 1));
+  }
+
+  popoverNextYear(): void {
+    const c = this.popoverMonth();
+    this.popoverMonth.set(new Date(c.getFullYear() + 1, c.getMonth(), 1));
+  }
+
+  calendarPrevYear(): void {
+    const c = this.calendarMonth();
+    this.calendarMonth.set(new Date(c.getFullYear() - 1, c.getMonth(), 1));
+  }
+
+  calendarNextYear(): void {
+    const c = this.calendarMonth();
+    this.calendarMonth.set(new Date(c.getFullYear() + 1, c.getMonth(), 1));
+  }
+
   setPayment(value: PaymentMethod | 'Todas'): void {
     this.paymentFilter.set(value);
-    this.paymentDropdownOpen.set(false);
+  }
+
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.entryModal()) this.closeEntryModal();
+    if (this.contextMenu()) this.closeContextMenu();
   }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.date-popover')) this.calendarOpen.set(false);
-    if (!target.closest('.payment-dropdown-wrap')) this.paymentDropdownOpen.set(false);
   }
 
   setDateFromInput(date: string): void {

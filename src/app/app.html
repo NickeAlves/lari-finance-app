@@ -197,7 +197,10 @@
         <div class="panel-heading">
           <div>
             <span>Calendario</span>
-            <strong>{{ calendarMonthLabel() }}</strong>
+            <button type="button" class="calendar-month-btn" (click)="toggleCalendarView()">
+              {{ calendarMonthLabel() }}
+              <svg lucideChevronDown size="12"></svg>
+            </button>
           </div>
           <div class="icon-group">
             <button class="icon-btn" type="button" title="Mes anterior" (click)="previousMonth()">
@@ -210,29 +213,50 @@
         </div>
 
         <div class="calendar-widget">
-          <div class="weekdays">
-            @for (day of weekdays; track day) {
-              <span>{{ day }}</span>
-            }
-          </div>
-
-          <div class="calendar-days">
-            @for (day of calendarDays(); track day.date) {
-              <button
-                type="button"
-                class="calendar-day"
-                [class.muted]="!day.inMonth"
-                [class.selected]="day.selected"
-                [class.today]="day.today"
-                (click)="selectDate(day.date)"
-              >
-                <span>{{ day.day }}</span>
-                @if (day.total > 0) {
-                  <small>{{ compact(day.total) }}€</small>
+          @if (calendarViewMode() === 'month-picker') {
+            <div class="sh-month-picker cal-month-picker">
+              <div class="sh-mp-year-nav">
+                <button type="button" class="icon-btn" (click)="calendarPrevYear()">
+                  <svg lucideChevronLeft size="16"></svg>
+                </button>
+                <span>{{ calendarMonth().getFullYear() }}</span>
+                <button type="button" class="icon-btn" (click)="calendarNextYear()">
+                  <svg lucideChevronRight size="16"></svg>
+                </button>
+              </div>
+              <div class="sh-mp-grid">
+                @for (m of monthNames; track $index) {
+                  <button type="button" class="sh-mp-month"
+                          [class.active]="$index === calendarCurrentMonth()"
+                          (click)="selectCalendarMonthPick($index)">{{ m }}</button>
                 }
-              </button>
-            }
-          </div>
+              </div>
+            </div>
+          } @else {
+            <div class="weekdays">
+              @for (day of weekdays; track day) {
+                <span>{{ day }}</span>
+              }
+            </div>
+
+            <div class="calendar-days">
+              @for (day of calendarDays(); track day.date) {
+                <button
+                  type="button"
+                  class="calendar-day"
+                  [class.muted]="!day.inMonth"
+                  [class.selected]="day.selected"
+                  [class.today]="day.today"
+                  (click)="selectDate(day.date)"
+                >
+                  <span>{{ day.day }}</span>
+                  @if (day.total > 0) {
+                    <small>{{ compact(day.total) }}€</small>
+                  }
+                </button>
+              }
+            </div>
+          }
         </div>
 
         <div class="report-tabs" role="tablist" aria-label="Periodo del informe">
@@ -264,32 +288,11 @@
 
         <div class="field">
           <span>Forma de pago</span>
-          <div class="payment-dropdown-wrap">
-            <button
-              type="button"
-              class="sh-select-trigger"
-              (click)="paymentDropdownOpen.set(!paymentDropdownOpen())"
-            >
-              <span>{{ paymentFilter() }}</span>
-              <svg lucideChevronDown size="15"></svg>
-            </button>
-            @if (paymentDropdownOpen()) {
-              <ul class="sh-options" role="listbox">
-                <li
-                  role="option"
-                  [class.active]="paymentFilter() === 'Todas'"
-                  (click)="setPayment('Todas')"
-                >Todas</li>
-                @for (method of paymentMethods; track method) {
-                  <li
-                    role="option"
-                    [class.active]="paymentFilter() === method"
-                    (click)="setPayment(method)"
-                  >{{ method }}</li>
-                }
-              </ul>
-            }
-          </div>
+          <app-pay-select
+            [options]="allPaymentOptions"
+            [value]="paymentFilter()"
+            (valueChange)="setPayment($any($event))"
+          />
         </div>
 
         @if (periodMode() === 'custom') {
@@ -332,37 +335,76 @@
               </button>
               @if (calendarOpen()) {
                 <div class="popover sh-calendar" role="dialog" aria-label="Selector de fecha">
+                  <div class="sh-cal-text-input">
+                    <input
+                      type="text"
+                      placeholder="DD/MM/AAAA"
+                      [value]="popoverDateText()"
+                      (input)="onPopoverDateInput($any($event.target).value)"
+                      maxlength="10"
+                    />
+                  </div>
                   <div class="sh-cal-header">
-                    <button type="button" class="sh-cal-nav" (click)="popoverPrevMonth()">
+                    <button type="button" class="sh-cal-nav" title="Año anterior" (click)="popoverPrevYear()">
+                      <svg lucideChevronsLeft size="15"></svg>
+                    </button>
+                    <button type="button" class="sh-cal-nav" title="Mes anterior" (click)="popoverPrevMonth()">
                       <svg lucideChevronLeft size="15"></svg>
                     </button>
-                    <span class="sh-cal-month">{{ popoverMonthLabel() }}</span>
-                    <button type="button" class="sh-cal-nav" (click)="popoverNextMonth()">
+                    <button type="button" class="sh-cal-month-btn" (click)="togglePopoverView()">
+                      {{ popoverMonthLabel() }}
+                      <svg lucideChevronDown size="11"></svg>
+                    </button>
+                    <button type="button" class="sh-cal-nav" title="Mes siguiente" (click)="popoverNextMonth()">
                       <svg lucideChevronRight size="15"></svg>
                     </button>
+                    <button type="button" class="sh-cal-nav" title="Año siguiente" (click)="popoverNextYear()">
+                      <svg lucideChevronsRight size="15"></svg>
+                    </button>
                   </div>
-                  <div class="sh-cal-weekdays">
-                    @for (d of weekdays; track d) {
-                      <span>{{ d }}</span>
-                    }
-                  </div>
-                  <div class="sh-cal-grid">
-                    @for (day of calendarDaysPopover(); track day.date) {
-                      <button
-                        type="button"
-                        class="sh-cal-day"
-                        [class.outside]="!day.inMonth"
-                        [class.selected]="day.selected"
-                        [class.today]="day.today"
-                        (click)="selectDateFromPopover(day.date)"
-                      >{{ day.day }}</button>
-                    }
-                  </div>
+                  @if (popoverViewMode() === 'month-picker') {
+                    <div class="sh-month-picker">
+                      <div class="sh-mp-year-nav">
+                        <button type="button" class="sh-cal-nav" (click)="popoverPrevYear()">
+                          <svg lucideChevronLeft size="15"></svg>
+                        </button>
+                        <span>{{ popoverMonth().getFullYear() }}</span>
+                        <button type="button" class="sh-cal-nav" (click)="popoverNextYear()">
+                          <svg lucideChevronRight size="15"></svg>
+                        </button>
+                      </div>
+                      <div class="sh-mp-grid">
+                        @for (m of monthNames; track $index) {
+                          <button type="button" class="sh-mp-month"
+                                  [class.active]="$index === popoverCurrentMonth()"
+                                  (click)="selectPopoverMonthPick($index)">{{ m }}</button>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="sh-cal-weekdays">
+                      @for (d of weekdays; track d) {
+                        <span>{{ d }}</span>
+                      }
+                    </div>
+                    <div class="sh-cal-grid">
+                      @for (day of calendarDaysPopover(); track day.date) {
+                        <button
+                          type="button"
+                          class="sh-cal-day"
+                          [class.outside]="!day.inMonth"
+                          [class.selected]="day.selected"
+                          [class.today]="day.today"
+                          (click)="selectDateFromPopover(day.date)"
+                        >{{ day.day }}</button>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </div>
 
-            <button class="btn btn-primary" type="button" (click)="addEntry()">
+            <button class="btn btn-primary" type="button" (click)="openCreateModal()">
               <svg lucidePlus size="17"></svg>
               Añadir
             </button>
@@ -388,7 +430,7 @@
             </thead>
             <tbody>
               @for (entry of selectedDayEntries(); track trackById($index, entry)) {
-                <tr>
+                <tr (contextmenu)="openContextMenu($event, entry.id)">
                   <td>
                     <input
                       class="compact-input"
@@ -401,8 +443,8 @@
                     <input
                       type="text"
                       placeholder="Nombre"
-                      [ngModel]="entry.clientName"
-                      (ngModelChange)="updateEntry(entry.id, 'clientName', $event)"
+                      [value]="entry.clientName"
+                      (blur)="updateEntry(entry.id, 'clientName', $any($event.target).value)"
                     />
                   </td>
                   <td>
@@ -416,14 +458,11 @@
                     />
                   </td>
                   <td>
-                    <select
-                      [ngModel]="entry.paymentMethod"
-                      (ngModelChange)="updateEntry(entry.id, 'paymentMethod', $event)"
-                    >
-                      @for (method of paymentMethods; track method) {
-                        <option [value]="method">{{ method }}</option>
-                      }
-                    </select>
+                    <app-pay-select
+                      [options]="paymentMethods"
+                      [value]="entry.paymentMethod"
+                      (valueChange)="updateEntry(entry.id, 'paymentMethod', $any($event))"
+                    />
                   </td>
                   <td>{{ money(entry.iva) }}</td>
                   <td>{{ money(entry.fixedExpenses) }}</td>
@@ -432,14 +471,24 @@
                   <td>{{ money(entry.annualTaxReserve) }}</td>
                   <td>{{ money(dayTotals().revenue) }}</td>
                   <td>
-                    <button
-                      class="icon-btn danger"
-                      type="button"
-                      title="Eliminar"
-                      (click)="removeEntry(entry.id)"
-                    >
-                      <svg lucideTrash2 size="17"></svg>
-                    </button>
+                    <div class="row-actions">
+                      <button
+                        class="icon-btn"
+                        type="button"
+                        title="Editar"
+                        (click)="openEditModal(entry.id)"
+                      >
+                        <svg lucidePencil size="17"></svg>
+                      </button>
+                      <button
+                        class="icon-btn danger"
+                        type="button"
+                        title="Eliminar"
+                        (click)="removeEntry(entry.id)"
+                      >
+                        <svg lucideTrash2 size="17"></svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               } @empty {
@@ -447,7 +496,7 @@
                   <td colspan="11" class="empty-state">
                     <svg lucideTable size="26"></svg>
                     No hay pagos en este día.
-                    <button class="btn btn-primary" type="button" (click)="addEntry()">
+                    <button class="btn btn-primary" type="button" (click)="openCreateModal()">
                       Añadir primer pago
                     </button>
                   </td>
@@ -459,22 +508,32 @@
 
         <div class="mobile-entry-list">
           @for (entry of selectedDayEntries(); track trackById($index, entry)) {
-            <article class="entry-card">
+            <article class="entry-card" (contextmenu)="openContextMenu($event, entry.id)">
               <div class="entry-card-header">
                 <input
                   type="text"
                   placeholder="Nombre de la clienta"
-                  [ngModel]="entry.clientName"
-                  (ngModelChange)="updateEntry(entry.id, 'clientName', $event)"
+                  [value]="entry.clientName"
+                  (blur)="updateEntry(entry.id, 'clientName', $any($event.target).value)"
                 />
-                <button
-                  class="icon-btn danger"
-                  type="button"
-                  title="Eliminar"
-                  (click)="removeEntry(entry.id)"
-                >
-                  <svg lucideTrash2 size="17"></svg>
-                </button>
+                <div class="row-actions">
+                  <button
+                    class="icon-btn"
+                    type="button"
+                    title="Editar"
+                    (click)="openEditModal(entry.id)"
+                  >
+                    <svg lucidePencil size="17"></svg>
+                  </button>
+                  <button
+                    class="icon-btn danger"
+                    type="button"
+                    title="Eliminar"
+                    (click)="removeEntry(entry.id)"
+                  >
+                    <svg lucideTrash2 size="17"></svg>
+                  </button>
+                </div>
               </div>
 
               <div class="mobile-fields">
@@ -498,14 +557,11 @@
                 </label>
                 <label class="field span-2">
                   <span>Forma de pago</span>
-                  <select
-                    [ngModel]="entry.paymentMethod"
-                    (ngModelChange)="updateEntry(entry.id, 'paymentMethod', $event)"
-                  >
-                    @for (method of paymentMethods; track method) {
-                      <option [value]="method">{{ method }}</option>
-                    }
-                  </select>
+                  <app-pay-select
+                    [options]="paymentMethods"
+                    [value]="entry.paymentMethod"
+                    (valueChange)="updateEntry(entry.id, 'paymentMethod', $any($event))"
+                  />
                 </label>
               </div>
 
@@ -540,7 +596,7 @@
             <div class="empty-mobile">
               <svg lucideTable size="28"></svg>
               <span>No hay pagos en este día.</span>
-              <button class="btn btn-primary" type="button" (click)="addEntry()">
+              <button class="btn btn-primary" type="button" (click)="openCreateModal()">
                 Añadir pago
               </button>
             </div>
@@ -676,4 +732,85 @@
       </div>
     </section>
   </main>
+}
+
+@if (contextMenu(); as menu) {
+  <div class="ctx-backdrop" (click)="closeContextMenu()"></div>
+  <div class="ctx-menu" [style.left.px]="menu.x" [style.top.px]="menu.y">
+    <button class="ctx-item" type="button" (click)="openEditModal(menu.id)">
+      <svg lucidePencil size="15"></svg>
+      Editar
+    </button>
+    <button class="ctx-item danger" type="button" (click)="contextMenuDelete()">
+      <svg lucideTrash2 size="15"></svg>
+      Eliminar
+    </button>
+  </div>
+}
+
+@if (entryModal(); as modal) {
+  <div class="modal-backdrop" (click)="closeEntryModal()"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h2>{{ modal.mode === 'create' ? 'Nuevo pago' : 'Editar pago' }}</h2>
+      <button class="icon-btn" type="button" (click)="closeEntryModal()">
+        <svg lucideX size="18"></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Nombre de la clienta</span>
+        <input
+          type="text"
+          placeholder="Nombre"
+          [ngModel]="modal.clientName"
+          (ngModelChange)="updateModal('clientName', $event)"
+        />
+      </label>
+      <div class="modal-row">
+        <label class="field">
+          <span>Fecha</span>
+          <input
+            type="date"
+            [ngModel]="modal.date"
+            (ngModelChange)="updateModal('date', $event)"
+          />
+        </label>
+        <label class="field">
+          <span>Importe (€)</span>
+          <input
+            class="money-input"
+            type="number"
+            min="0"
+            step="0.01"
+            [ngModel]="modal.value"
+            (ngModelChange)="updateModal('value', +$event)"
+          />
+        </label>
+      </div>
+      <label class="field">
+        <span>Forma de pago</span>
+        <app-pay-select
+          [options]="paymentMethods"
+          [value]="modal.paymentMethod"
+          (valueChange)="updateModal('paymentMethod', $any($event))"
+        />
+      </label>
+      <label class="field">
+        <span>Notas <small>(opcional)</small></span>
+        <textarea
+          rows="2"
+          placeholder="Observaciones..."
+          [ngModel]="modal.notes"
+          (ngModelChange)="updateModal('notes', $event)"
+        ></textarea>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" type="button" (click)="closeEntryModal()">Cancelar</button>
+      <button class="btn btn-primary" type="button" (click)="saveEntryModal()">
+        {{ modal.mode === 'create' ? 'Añadir pago' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </div>
 }
