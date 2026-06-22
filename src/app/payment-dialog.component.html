@@ -31,9 +31,9 @@
       <div class="dialog-row">
         <label class="field">
           <span>Fecha</span>
-          <input
-            type="date"
-            [(ngModel)]="form.date"
+          <app-date-picker
+            [value]="form.date"
+            (valueChange)="form.date = $event"
             [disabled]="saving"
           />
         </label>

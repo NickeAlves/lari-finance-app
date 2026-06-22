@@ -1,13 +1,14 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LucideAlertCircle, LucideLoaderCircle, LucideX } from '@lucide/angular';
+import { DatePickerComponent } from './date-picker.component';
 import { PaySelectComponent } from './pay-select.component';
 import { EntryModalState, PaymentMethod } from './payment.types';
 
 @Component({
   selector: 'app-payment-dialog',
   standalone: true,
-  imports: [FormsModule, LucideX, LucideAlertCircle, LucideLoaderCircle, PaySelectComponent],
+  imports: [FormsModule, LucideX, LucideAlertCircle, LucideLoaderCircle, PaySelectComponent, DatePickerComponent],
   templateUrl: './payment-dialog.component.html',
   styleUrl: './payment-dialog.component.scss',
 })

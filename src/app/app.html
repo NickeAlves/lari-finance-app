@@ -299,15 +299,17 @@
           <div class="date-range">
             <label class="field">
               <span>Desde</span>
-              <input
-                type="date"
-                [ngModel]="customFrom()"
-                (ngModelChange)="customFrom.set($event)"
+              <app-date-picker
+                [value]="customFrom()"
+                (valueChange)="customFrom.set($event)"
               />
             </label>
             <label class="field">
               <span>Hasta</span>
-              <input type="date" [ngModel]="customTo()" (ngModelChange)="customTo.set($event)" />
+              <app-date-picker
+                [value]="customTo()"
+                (valueChange)="customTo.set($event)"
+              />
             </label>
           </div>
         }
@@ -432,11 +434,10 @@
               @for (entry of selectedDayEntries(); track trackById($index, entry)) {
                 <tr (contextmenu)="openContextMenu($event, entry.id)">
                   <td>
-                    <input
+                    <app-date-picker
                       class="compact-input"
-                      type="date"
-                      [ngModel]="entry.date"
-                      (ngModelChange)="updateEntry(entry.id, 'date', $event)"
+                      [value]="entry.date"
+                      (valueChange)="updateEntry(entry.id, 'date', $event)"
                     />
                   </td>
                   <td>
@@ -539,10 +540,9 @@
               <div class="mobile-fields">
                 <label class="field">
                   <span>Fecha</span>
-                  <input
-                    type="date"
-                    [ngModel]="entry.date"
-                    (ngModelChange)="updateEntry(entry.id, 'date', $event)"
+                  <app-date-picker
+                    [value]="entry.date"
+                    (valueChange)="updateEntry(entry.id, 'date', $event)"
                   />
                 </label>
                 <label class="field">

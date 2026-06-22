@@ -33,6 +33,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
+import { DatePickerComponent } from './date-picker.component';
 import { PaymentDialogComponent } from './payment-dialog.component';
 import { type EntryModalState, type PaymentMethod } from './payment.types';
 import { PaySelectComponent } from './pay-select.component';
@@ -181,6 +182,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideWallet,
     PaySelectComponent,
     PaymentDialogComponent,
+    DatePickerComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
