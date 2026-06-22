@@ -65,7 +65,8 @@
               "buildTarget": "lari-finance-app:build:production"
             },
             "development": {
-              "buildTarget": "lari-finance-app:build:development"
+              "buildTarget": "lari-finance-app:build:development",
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"
