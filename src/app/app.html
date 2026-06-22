@@ -186,9 +186,9 @@
         <small>{{ financeLabels.salary }} automático</small>
       </article>
       <article class="metric-card">
-        <span>IVA + impuestos</span>
-        <strong>{{ money(dayTotals().iva + dayTotals().annualTaxReserve) }}</strong>
-        <small>{{ financeLabels.iva }} · {{ financeLabels.annualTaxReserve }}</small>
+        <span>IVA</span>
+        <strong>{{ money(dayTotals().iva) }}</strong>
+        <small>{{ financeLabels.iva }}</small>
       </article>
     </section>
 
@@ -262,15 +262,35 @@
           </button>
         </div>
 
-        <label class="field">
+        <div class="field">
           <span>Forma de pago</span>
-          <select [ngModel]="paymentFilter()" (ngModelChange)="paymentFilter.set($event)">
-            <option value="Todas">Todas</option>
-            @for (method of paymentMethods; track method) {
-              <option [value]="method">{{ method }}</option>
+          <div class="payment-dropdown-wrap">
+            <button
+              type="button"
+              class="sh-select-trigger"
+              (click)="paymentDropdownOpen.set(!paymentDropdownOpen())"
+            >
+              <span>{{ paymentFilter() }}</span>
+              <svg lucideChevronDown size="15"></svg>
+            </button>
+            @if (paymentDropdownOpen()) {
+              <ul class="sh-options" role="listbox">
+                <li
+                  role="option"
+                  [class.active]="paymentFilter() === 'Todas'"
+                  (click)="setPayment('Todas')"
+                >Todas</li>
+                @for (method of paymentMethods; track method) {
+                  <li
+                    role="option"
+                    [class.active]="paymentFilter() === method"
+                    (click)="setPayment(method)"
+                  >{{ method }}</li>
+                }
+              </ul>
             }
-          </select>
-        </label>
+          </div>
+        </div>
 
         @if (periodMode() === 'custom') {
           <div class="date-range">
@@ -305,18 +325,39 @@
               <button
                 class="btn btn-ghost"
                 type="button"
-                (click)="calendarOpen.set(!calendarOpen())"
+                (click)="toggleDatePicker()"
               >
                 <svg lucideCalendar size="17"></svg>
                 Cambiar día
               </button>
               @if (calendarOpen()) {
-                <div class="popover" role="dialog" aria-label="Selector de fecha">
-                  <input
-                    type="date"
-                    [ngModel]="selectedDate()"
-                    (ngModelChange)="setDateFromInput($event)"
-                  />
+                <div class="popover sh-calendar" role="dialog" aria-label="Selector de fecha">
+                  <div class="sh-cal-header">
+                    <button type="button" class="sh-cal-nav" (click)="popoverPrevMonth()">
+                      <svg lucideChevronLeft size="15"></svg>
+                    </button>
+                    <span class="sh-cal-month">{{ popoverMonthLabel() }}</span>
+                    <button type="button" class="sh-cal-nav" (click)="popoverNextMonth()">
+                      <svg lucideChevronRight size="15"></svg>
+                    </button>
+                  </div>
+                  <div class="sh-cal-weekdays">
+                    @for (d of weekdays; track d) {
+                      <span>{{ d }}</span>
+                    }
+                  </div>
+                  <div class="sh-cal-grid">
+                    @for (day of calendarDaysPopover(); track day.date) {
+                      <button
+                        type="button"
+                        class="sh-cal-day"
+                        [class.outside]="!day.inMonth"
+                        [class.selected]="day.selected"
+                        [class.today]="day.today"
+                        (click)="selectDateFromPopover(day.date)"
+                      >{{ day.day }}</button>
+                    }
+                  </div>
                 </div>
               }
             </div>
