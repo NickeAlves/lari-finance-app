@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   LucideBadgeEuro,
   LucideCalendar,
   LucideChartNoAxesCombined,
+  LucideChevronDown,
   LucideChevronLeft,
   LucideChevronRight,
   LucideCreditCard,
@@ -152,6 +153,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideBadgeEuro,
     LucideCalendar,
     LucideChartNoAxesCombined,
+    LucideChevronDown,
     LucideChevronLeft,
     LucideChevronRight,
     LucideCreditCard,
@@ -214,6 +216,8 @@ export class App {
   readonly customFrom = signal(this.toDateInput(this.addDays(new Date(), -6)));
   readonly customTo = signal(this.toDateInput(new Date()));
   readonly calendarOpen = signal(false);
+  readonly popoverMonth = signal(this.monthStart(new Date()));
+  readonly paymentDropdownOpen = signal(false);
   readonly apiState = signal<'online' | 'fallback'>('fallback');
   readonly entries = signal<PaymentEntry[]>(this.loadEntries());
   readonly authSession = signal<AuthSession | null>(this.loadAuthSession());
@@ -287,6 +291,29 @@ export class App {
 
   readonly dayTotals = computed(() => this.calculateTotals(this.selectedDayEntries()));
   readonly reportTotals = computed(() => this.calculateTotals(this.periodEntries()));
+
+  readonly popoverMonthLabel = computed(() => this.monthFormatter.format(this.popoverMonth()));
+
+  readonly calendarDaysPopover = computed<CalendarDay[]>(() => {
+    const month = this.popoverMonth();
+    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const start = this.addDays(firstDay, -startOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = this.addDays(start, index);
+      const dateInput = this.toDateInput(date);
+
+      return {
+        date: dateInput,
+        day: date.getDate(),
+        inMonth: date.getMonth() === month.getMonth(),
+        selected: dateInput === this.selectedDate(),
+        today: dateInput === this.toDateInput(new Date()),
+        total: 0,
+      };
+    });
+  });
 
   readonly calendarDays = computed<CalendarDay[]>(() => {
     const month = this.calendarMonth();
@@ -512,6 +539,41 @@ export class App {
     this.selectedDate.set(date);
     this.calendarMonth.set(this.monthStart(this.parseDate(date)));
     this.calendarOpen.set(false);
+  }
+
+  toggleDatePicker(): void {
+    if (!this.calendarOpen()) {
+      this.popoverMonth.set(this.monthStart(this.parseDate(this.selectedDate())));
+    }
+    this.calendarOpen.update((v) => !v);
+  }
+
+  popoverPrevMonth(): void {
+    const current = this.popoverMonth();
+    this.popoverMonth.set(new Date(current.getFullYear(), current.getMonth() - 1, 1));
+  }
+
+  popoverNextMonth(): void {
+    const current = this.popoverMonth();
+    this.popoverMonth.set(new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  }
+
+  selectDateFromPopover(date: string): void {
+    this.selectedDate.set(date);
+    this.calendarMonth.set(this.monthStart(this.parseDate(date)));
+    this.calendarOpen.set(false);
+  }
+
+  setPayment(value: PaymentMethod | 'Todas'): void {
+    this.paymentFilter.set(value);
+    this.paymentDropdownOpen.set(false);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.date-popover')) this.calendarOpen.set(false);
+    if (!target.closest('.payment-dropdown-wrap')) this.paymentDropdownOpen.set(false);
   }
 
   setDateFromInput(date: string): void {
