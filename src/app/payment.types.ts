@@ -4,7 +4,7 @@ export interface EntryModalState {
   mode: 'create' | 'edit';
   id: string;
   clientName: string;
-  value: number;
+  value: number | null;
   paymentMethod: PaymentMethod;
   date: string;
   notes: string;

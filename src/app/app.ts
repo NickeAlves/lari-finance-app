@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Component, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   LucideBadgeEuro,
   LucideCalendar,
   LucideChartNoAxesCombined,
+  LucideCheck,
   LucideChevronDown,
   LucideChevronLeft,
   LucideChevronRight,
@@ -21,6 +22,7 @@ import {
   LucideMail,
   LucidePencil,
   LucidePlus,
+  LucideArrowUpDown,
   LucideRefreshCw,
   LucideSparkles,
   LucideTable,
@@ -57,6 +59,7 @@ interface PaymentEntry extends FinanceCalculation {
   value: number;
   paymentMethod: PaymentMethod;
   notes?: string;
+  createdAt?: string;
   status: 'synced' | 'local';
 }
 
@@ -74,7 +77,10 @@ interface IncomeEntryResponse {
   annualTaxReserveAmount: number;
   dailyTotal: number;
   notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
+
 
 interface IncomeEntryRequest {
   date: string;
@@ -155,9 +161,11 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
   imports: [
     CommonModule,
     FormsModule,
+    LucideArrowUpDown,
     LucideBadgeEuro,
     LucideCalendar,
     LucideChartNoAxesCombined,
+    LucideCheck,
     LucideChevronDown,
     LucideChevronLeft,
     LucideChevronRight,
@@ -250,6 +258,16 @@ export class App {
   readonly entryModal = signal<EntryModalState | null>(null);
   readonly savingModal = signal(false);
   readonly modalError = signal<string | null>(null);
+  readonly sortMode = signal<'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'amount-desc' | 'amount-asc'>('newest');
+  readonly sortOpen = signal(false);
+  readonly sortOptions = [
+    { value: 'newest' as const,      label: 'Más nuevo primero',   sortBy: 'createdAt',  sortDir: 'desc' },
+    { value: 'oldest' as const,      label: 'Más antiguo primero', sortBy: 'createdAt',  sortDir: 'asc'  },
+    { value: 'name-asc' as const,    label: 'Nombre (A → Z)',      sortBy: 'clientName', sortDir: 'asc'  },
+    { value: 'name-desc' as const,   label: 'Nombre (Z → A)',      sortBy: 'clientName', sortDir: 'desc' },
+    { value: 'amount-desc' as const, label: 'Mayor importe',       sortBy: 'amount',     sortDir: 'desc' },
+    { value: 'amount-asc' as const,  label: 'Menor importe',       sortBy: 'amount',     sortDir: 'asc'  },
+  ];
 
   readonly authenticated = computed(
     () => Boolean(this.authSession()?.token) && !this.authChecking(),
@@ -258,11 +276,20 @@ export class App {
   readonly selectedDateLabel = computed(() => this.formatDate(this.selectedDate()));
   readonly calendarMonthLabel = computed(() => this.monthFormatter.format(this.calendarMonth()));
 
-  readonly selectedDayEntries = computed(() =>
-    this.entries()
-      .filter((entry) => entry.date === this.selectedDate())
-      .sort((a, b) => a.clientName.localeCompare(b.clientName, 'es')),
-  );
+  readonly selectedDayEntries = computed(() => {
+    const filtered = this.entries().filter((entry) => entry.date === this.selectedDate());
+    const mode = this.sortMode();
+    return [...filtered].sort((a, b) => {
+      switch (mode) {
+        case 'oldest':      return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+        case 'name-asc':    return a.clientName.localeCompare(b.clientName);
+        case 'name-desc':   return b.clientName.localeCompare(a.clientName);
+        case 'amount-desc': return b.value - a.value;
+        case 'amount-asc':  return a.value - b.value;
+        default:            return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+      }
+    });
+  });
 
   readonly periodRange = computed(() => {
     const selected = this.parseDate(this.selectedDate());
@@ -591,7 +618,7 @@ export class App {
     const body: IncomeEntryRequest = {
       date: state.date,
       clientName: state.clientName.trim(),
-      amount: state.value,
+      amount: state.value ?? 0,
       paymentMethod: PAYMENT_METHOD_ENUM[state.paymentMethod],
       notes: state.notes || null,
     };
@@ -669,12 +696,24 @@ export class App {
 
   toggleDatePicker(): void {
     if (!this.calendarOpen()) {
+      this.sortOpen.set(false);
       this.popoverMonth.set(this.monthStart(this.parseDate(this.selectedDate())));
       this.popoverViewMode.set('calendar');
       const [y, m, d] = this.selectedDate().split('-');
       this.popoverDateText.set(`${d}/${m}/${y}`);
     }
     this.calendarOpen.update((v) => !v);
+  }
+
+  toggleSortPicker(): void {
+    if (!this.sortOpen()) this.calendarOpen.set(false);
+    this.sortOpen.update((v) => !v);
+  }
+
+  setSortMode(mode: (typeof this.sortOptions)[number]['value']): void {
+    this.sortMode.set(mode);
+    this.sortOpen.set(false);
+    this.loadEntriesFromApi();
   }
 
   popoverPrevMonth(): void {
@@ -761,6 +800,7 @@ export class App {
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (!target.closest('.date-popover')) this.calendarOpen.set(false);
+    if (!target.closest('.sort-popover')) this.sortOpen.set(false);
   }
 
   setDateFromInput(date: string): void {
@@ -821,10 +861,7 @@ export class App {
     XLSX.utils.book_append_sheet(workbook, movements, 'Movimientos');
     XLSX.utils.book_append_sheet(workbook, summary, 'Resumen');
     XLSX.utils.book_append_sheet(workbook, payments, 'Pagos');
-    XLSX.writeFile(
-      workbook,
-      `lari-finance-${this.periodRange().from}-${this.periodRange().to}.xlsx`,
-    );
+    XLSX.writeFile(workbook, `${this.exportFilename()}.xlsx`);
   }
 
   exportPdf(): void {
@@ -854,8 +891,9 @@ export class App {
       headStyles: { fillColor: [24, 24, 27] },
     });
 
+    const summaryEndY = (document as any).lastAutoTable.finalY as number;
     autoTable(document, {
-      startY: 96,
+      startY: summaryEndY + 10,
       head: [
         ['Fecha', 'Cliente', 'Importe', 'Pago', 'IVA', 'Fijos', 'Productos', 'Salario', 'Impuestos'],
       ],
@@ -875,7 +913,12 @@ export class App {
       headStyles: { fillColor: [63, 63, 70] },
     });
 
-    document.save(`lari-finance-${this.periodRange().from}-${this.periodRange().to}.pdf`);
+    document.save(`${this.exportFilename()}.pdf`);
+  }
+
+  private exportFilename(): string {
+    const { from, to } = this.periodRange();
+    return from === to ? `payment_report_${from}` : `payment_report_${from}_${to}`;
   }
 
   money(value: number): string {
@@ -1003,6 +1046,7 @@ export class App {
       value: Number(r.amount),
       paymentMethod: r.paymentMethodLabel as PaymentMethod,
       notes: r.notes ?? undefined,
+      createdAt: r.createdAt,
       iva: Number(r.vatAmount),
       fixedExpenses: Number(r.fixedExpensesAmount),
       products: Number(r.productsAmount),
@@ -1173,9 +1217,15 @@ export class App {
   }
 
   private loadEntriesFromApi(): void {
-    this.http.get<IncomeEntryResponse[]>(appSettings.entriesUrl).subscribe({
-      next: (apiEntries) => {
-        this.entries.set(apiEntries.map((r) => this.mapIncomeEntryResponse(r)));
+    const opt = this.sortOptions.find((o) => o.value === this.sortMode()) ?? this.sortOptions[0];
+    const params = new HttpParams()
+      .set('size', '1000')
+      .set('sortBy', opt.sortBy)
+      .set('sortDir', opt.sortDir);
+
+    this.http.get<IncomeEntryResponse[]>(appSettings.entriesUrl, { params }).subscribe({
+      next: (res) => {
+        this.entries.set(res.map((r) => this.mapIncomeEntryResponse(r)));
         this.apiState.set('online');
       },
       error: (error: HttpErrorResponse) => {

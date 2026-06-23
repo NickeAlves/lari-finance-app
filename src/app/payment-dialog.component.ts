@@ -24,20 +24,35 @@ export class PaymentDialogComponent implements OnChanges {
     mode: 'create',
     id: '',
     clientName: '',
-    value: 0,
+    value: null,
     paymentMethod: 'Efectivo',
     date: '',
     notes: '',
   };
 
+  validationError: string | null = null;
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['modal'] && this.modal) {
       this.form = { ...this.modal };
+      this.validationError = null;
     }
   }
 
   submit(): void {
     if (this.saving) return;
+
+    const missing: string[] = [];
+    if (!this.form.clientName?.trim()) missing.push('Nombre de la clienta');
+    if (this.form.value == null || this.form.value <= 0) missing.push('Importe');
+    if (!this.form.date) missing.push('Fecha');
+
+    if (missing.length > 0) {
+      this.validationError = `Campos obligatorios: ${missing.join(', ')}`;
+      return;
+    }
+
+    this.validationError = null;
     this.save.emit({ ...this.form });
   }
 }

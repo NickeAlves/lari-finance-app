@@ -68,6 +68,12 @@
         ></textarea>
       </label>
 
+      @if (validationError) {
+        <p class="dialog-error" role="alert">
+          <svg lucideAlertCircle size="15"></svg>
+          {{ validationError }}
+        </p>
+      }
       @if (error) {
         <p class="dialog-error" role="alert">
           <svg lucideAlertCircle size="15"></svg>

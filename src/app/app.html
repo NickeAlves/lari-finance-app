@@ -406,6 +406,35 @@
               }
             </div>
 
+            <div class="sort-popover">
+              <button
+                class="btn btn-ghost"
+                type="button"
+                [class.active]="sortMode() !== 'newest'"
+                (click)="toggleSortPicker()"
+              >
+                <svg lucideArrowUpDown size="17"></svg>
+                Ordenar
+              </button>
+              @if (sortOpen()) {
+                <div class="popover sh-sort" role="dialog" aria-label="Ordenación">
+                  @for (opt of sortOptions; track opt.value) {
+                    <button
+                      type="button"
+                      class="sh-sort-option"
+                      [class.active]="sortMode() === opt.value"
+                      (click)="setSortMode(opt.value)"
+                    >
+                      {{ opt.label }}
+                      @if (sortMode() === opt.value) {
+                        <svg lucideCheck size="14"></svg>
+                      }
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
             <button class="btn btn-primary" type="button" (click)="openCreateModal()">
               <svg lucidePlus size="17"></svg>
               Añadir
@@ -426,7 +455,6 @@
                 <th>{{ financeLabels.products }}</th>
                 <th>{{ financeLabels.salary }}</th>
                 <th>{{ financeLabels.annualTaxReserve }}</th>
-                <th>Total día</th>
                 <th></th>
               </tr>
             </thead>
@@ -470,7 +498,6 @@
                   <td>{{ money(entry.products) }}</td>
                   <td>{{ money(entry.salary) }}</td>
                   <td>{{ money(entry.annualTaxReserve) }}</td>
-                  <td>{{ money(dayTotals().revenue) }}</td>
                   <td>
                     <div class="row-actions">
                       <button
@@ -585,10 +612,6 @@
                 <div>
                   <dt>Impuesto</dt>
                   <dd>{{ money(entry.annualTaxReserve) }}</dd>
-                </div>
-                <div>
-                  <dt>Total día</dt>
-                  <dd>{{ money(dayTotals().revenue) }}</dd>
                 </div>
               </dl>
             </article>
