@@ -1,35 +1,35 @@
 # Security Policy
 
-## Versão suportada
+## Supported version
 
-Este projeto não segue versionamento semântico público. Apenas a versão em produção (branch `main`) recebe atualizações de segurança.
+This project does not follow public semantic versioning. Only the production version (branch `main`) receives security updates.
 
-## Reportando vulnerabilidades
+## Reporting vulnerabilities
 
-Envie um e-mail para **nickalves88@gmail.com** com o assunto `[SECURITY] Lari Finance`.
+Send an email to **nickalves88@gmail.com** with the subject `[SECURITY] Lari Finance`.
 
-Inclua no reporte:
-- Descrição clara da vulnerabilidade
-- Passos para reproduzir (proof of concept, se possível)
-- Impacto potencial e superfície de ataque
+Include in the report:
+- Clear description of the vulnerability
+- Steps to reproduce (proof of concept if possible)
+- Potential impact and attack surface
 
-Você pode esperar uma resposta em até **5 dias úteis**. Vulnerabilidades confirmadas serão corrigidas com prioridade; você será notificado quando o fix estiver em produção.
+You can expect a response within **5 business days**. Confirmed vulnerabilities will be fixed with priority; you will be notified when the fix is in production.
 
-Não abra issues públicas para reportar falhas de segurança.
+Do not open public issues to report security flaws.
 
-## Considerações de segurança
+## Security considerations
 
-### Autenticação e tokens
-- O token de autenticação é armazenado em `localStorage` (`lari-finance-auth-v1`). Isso o torna suscetível a ataques XSS. Certifique-se de que não há injeção de scripts de terceiros na aplicação.
-- O interceptor HTTP (`auth.interceptor.ts`) adiciona o header `Authorization: Bearer <token>` em todas as requisições de saída.
+### Authentication and tokens
+- The authentication token is stored in `localStorage` (`lari-finance-auth-v1`). This makes it susceptible to XSS attacks. Make sure there is no third-party script injection in the application.
+- The HTTP interceptor (`auth.interceptor.ts`) adds the `Authorization: Bearer <token>` header to all outgoing requests.
 
-### Variáveis de ambiente
-- `API_BASE_URL` e as variáveis `LARI_*` são embutidas em `public/env.js` em runtime e ficam visíveis no cliente. Não coloque segredos nessas variáveis.
-- Segredos reais (chaves de API do backend, credenciais de banco de dados) devem existir apenas no servidor e nunca ser expostos via `API_BASE_URL` ou similares.
+### Environment variables
+- `API_BASE_URL` and the `LARI_*` variables are embedded in `public/env.js` at runtime and are visible to the client. Do not put secrets in these variables.
+- Real secrets (backend API keys, database credentials) must exist only on the server and must never be exposed via `API_BASE_URL` or similar.
 
-### HTTPS em produção
-- O Caddy provisiona TLS automaticamente em produção. Nunca exponha a aplicação via HTTP puro em ambiente de produção.
-- No Railway, o HTTPS é gerenciado pela plataforma.
+### HTTPS in production
+- Caddy provisions TLS automatically in production. Never expose the application over plain HTTP in a production environment.
+- On Railway, HTTPS is managed by the platform.
 
-### Dados em localStorage
-- Lançamentos pendentes de sincronização são cacheados em `localStorage` (`lari-finance-payments-v1`). Dados financeiros sensíveis ficam acessíveis a qualquer script rodando na mesma origem.
+### Data in localStorage
+- Entries pending sync are cached in `localStorage` (`lari-finance-payments-v1`). Sensitive financial data is accessible to any script running on the same origin.
