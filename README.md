@@ -1,89 +1,89 @@
 # Lari Finance
 
-Aplicação de controle financeiro para profissionais autônomos. Permite registrar lançamentos de pagamentos, calcular automaticamente impostos e despesas, gerar relatórios por período e exportar os dados em PDF ou Excel.
+Financial management app for self-employed professionals. Tracks payment entries, automatically calculates taxes and expenses, generates reports by period, and exports data as PDF or Excel.
 
-## Funcionalidades
+## Features
 
-- **Autenticação** — login e cadastro via API, sessão persistida em localStorage
-- **Lançamentos** — criação, edição e exclusão de entradas com cliente, valor, método de pagamento, data e observações; sincronizadas com a API e cacheadas offline
-- **Cálculos automáticos** — IVA, despesas fixas, produtos, salário e reserva de imposto anual calculados por entrada, via API ou fallback local
-- **Relatórios** — visões por dia, semana, mês ou período personalizado com totais, ticket médio, top cliente e breakdown por método de pagamento
-- **Exportação** — XLSX (lançamentos, resumo e breakdown por método) e PDF
-- **Configuração por ambiente** — taxas, moeda, locale e URL da API configuráveis via variáveis de ambiente em runtime, sem necessidade de rebuild
+- **Authentication** — login and registration via API, session persisted in localStorage
+- **Entries** — create, edit, and delete records with client name, amount, payment method, date, and notes; synced with the API and cached offline
+- **Automatic calculations** — IVA, fixed expenses, products, salary, and annual tax reserve computed per entry, via API or local fallback
+- **Reports** — views by day, week, month, or custom period with totals, average ticket, top client, and breakdown by payment method
+- **Export** — XLSX (entries, summary, and payment method breakdown) and PDF
+- **Environment-based configuration** — rates, currency, locale, and API URL configurable via environment variables at runtime, no rebuild required
 
-## Tecnologias
+## Tech stack
 
 - [Angular 21](https://angular.dev) · TypeScript 5.9 · RxJS 7.8
-- [Vitest](https://vitest.dev) (testes unitários)
-- [jsPDF](https://github.com/parallax/jsPDF) + jspdf-autotable (exportação PDF)
-- [xlsx](https://github.com/SheetJS/sheetjs) (exportação Excel)
-- [Lucide Angular](https://lucide.dev) (ícones)
-- [Caddy](https://caddyserver.com) (servidor web em produção, com TLS automático)
+- [Vitest](https://vitest.dev) (unit tests)
+- [jsPDF](https://github.com/parallax/jsPDF) + jspdf-autotable (PDF export)
+- [xlsx](https://github.com/SheetJS/sheetjs) (Excel export)
+- [Lucide Angular](https://lucide.dev) (icons)
+- [Caddy](https://caddyserver.com) (production web server, automatic TLS)
 
-## Desenvolvimento local
+## Local development
 
-Pré-requisitos: Node.js 22+, npm 11+.
+Prerequisites: Node.js 22+, npm 11+.
 
 ```bash
 npm install
 npm start
 ```
 
-A aplicação estará disponível em `http://localhost:4200/`. As requisições de API são encaminhadas pelo proxy configurado em `proxy.conf.json`.
+The app will be available at `http://localhost:4200/`. API requests are proxied through the configuration in `proxy.conf.json`.
 
-## Variáveis de ambiente
+## Environment variables
 
-Copie `.env.example` para `.env` para sobrescrever a configuração local:
+Copy `.env.example` to `.env` to override local configuration:
 
 ```bash
 cp .env.example .env
 ```
 
-O arquivo `public/env.js` é gerado automaticamente por `npm start` e `npm run build`. No Docker, é recriado na inicialização do container a partir das variáveis reais do ambiente.
+`public/env.js` is generated automatically by `npm start` and `npm run build`. In Docker, it is recreated at container startup from the actual environment variables.
 
-| Variável | Descrição | Padrão |
+| Variable | Description | Default |
 |---|---|---|
-| `API_BASE_URL` | URL base da API. As rotas são compostas a partir dela (`/auth/login`, `/auth/register`, `/finance/calculate`, `/finance/rates`, `/entries`) | `/api` |
-| `LARI_LOCALE` | Locale usado nos formatadores de moeda e data | `es-ES` |
-| `LARI_CURRENCY` | Código da moeda (ISO 4217) | `EUR` |
-| `LARI_HERO_IMAGE_URL` | URL da imagem exibida no topo da aplicação | — |
-| `LARI_IVA_RATE` | Percentual de IVA (entre 0 e 1) | `0.21` |
-| `LARI_FIXED_EXPENSES_RATE` | Percentual de despesas fixas | `0.20` |
-| `LARI_PRODUCTS_RATE` | Percentual de produtos | `0.08` |
-| `LARI_SALARY_RATE` | Percentual de salário | `0.41` |
-| `LARI_ANNUAL_TAX_RESERVE_RATE` | Percentual de reserva de imposto anual | `0.10` |
-| `APP_PORT` | Porta exposta pelo Docker Compose | `8080` |
-| `PORT` | Porta injetada pelo Railway em produção | — |
-| `DOCKER_IMAGE` | Nome da imagem Docker usada no Compose | — |
+| `API_BASE_URL` | Base API URL. Routes are composed from it (`/auth/login`, `/auth/register`, `/finance/calculate`, `/finance/rates`, `/entries`) | `/api` |
+| `LARI_LOCALE` | Locale used by currency and date formatters | `es-ES` |
+| `LARI_CURRENCY` | Currency code (ISO 4217) | `EUR` |
+| `LARI_HERO_IMAGE_URL` | URL of the image displayed at the top of the app | — |
+| `LARI_IVA_RATE` | IVA rate (between 0 and 1) | `0.21` |
+| `LARI_FIXED_EXPENSES_RATE` | Fixed expenses rate | `0.20` |
+| `LARI_PRODUCTS_RATE` | Products rate | `0.08` |
+| `LARI_SALARY_RATE` | Salary rate | `0.41` |
+| `LARI_ANNUAL_TAX_RESERVE_RATE` | Annual tax reserve rate | `0.10` |
+| `APP_PORT` | Port exposed by Docker Compose | `8080` |
+| `PORT` | Port injected by Railway in production | — |
+| `DOCKER_IMAGE` | Docker image name used in Compose | — |
 
-## Docker e Railway
+## Docker and Railway
 
-Para executar localmente com Docker Compose:
+To run locally with Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-A aplicação estará disponível na porta definida por `APP_PORT`. Para parar:
+The app will be available on the port defined by `APP_PORT`. To stop:
 
 ```bash
 docker compose down
 ```
 
-No Railway, publique o repositório com o `Dockerfile` na raiz. O Railway detecta o `Dockerfile` automaticamente e injeta a variável `PORT`; o Caddy usa essa porta em runtime. Configure `API_BASE_URL` e as variáveis `LARI_*` no painel do Railway para ajustar endpoint, moeda, imagem ou percentuais sem modificar o código.
+On Railway, publish the repository with the `Dockerfile` at the root. Railway detects the `Dockerfile` automatically and injects the `PORT` variable; Caddy uses that port at runtime. Set `API_BASE_URL` and the `LARI_*` variables in the Railway dashboard to adjust the endpoint, currency, image, or rates without modifying the code.
 
-## Testes
+## Tests
 
 ```bash
 ng test
 ```
 
-Executa os testes unitários com [Vitest](https://vitest.dev).
+Runs unit tests with [Vitest](https://vitest.dev).
 
-## Build de produção
+## Production build
 
 ```bash
 npm run build
 ```
 
-Os artefatos gerados ficam em `dist/`. A build de produção é otimizada automaticamente pelo Angular CLI.
+Build artifacts are placed in `dist/`. The production build is automatically optimized by the Angular CLI.
