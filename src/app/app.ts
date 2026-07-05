@@ -23,7 +23,6 @@ import {
   LucidePencil,
   LucidePlus,
   LucideArrowUpDown,
-  LucideRefreshCw,
   LucideSparkles,
   LucideTable,
   LucideTrash2,
@@ -81,6 +80,17 @@ interface IncomeEntryResponse {
   updatedAt: string;
 }
 
+interface IncomeEntryPageResponse {
+  content: IncomeEntryResponse[];
+  metadata: {
+    totalElements: number;
+    totalPages: number;
+    page: number;
+    size: number;
+    first: boolean;
+    last: boolean;
+  };
+}
 
 interface IncomeEntryRequest {
   date: string;
@@ -147,6 +157,7 @@ interface ApiErrorResponse {
 const PAYMENT_METHODS: PaymentMethod[] = ['Efectivo', 'Bizum', 'Tarjeta', 'Transferencia', 'Otro'];
 const STORAGE_KEY = 'lari-finance-payments-v1';
 const AUTH_STORAGE_KEY = 'lari-finance-auth-v1';
+const ENTRIES_PAGE_SIZE = 100;
 
 const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
   Efectivo: 'EFECTIVO',
@@ -181,7 +192,6 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     LucideMail,
     LucidePencil,
     LucidePlus,
-    LucideRefreshCw,
     LucideSparkles,
     LucideTable,
     LucideTrash2,
@@ -826,12 +836,6 @@ export class App {
     this.periodMode.set(period);
   }
 
-  refreshCalculations(): void {
-    for (const entry of this.entries()) {
-      this.calculateEntry(entry.id, entry.value);
-    }
-  }
-
   exportExcel(): void {
     const rows = this.periodEntries().map((entry) => this.exportRow(entry));
     const workbook = XLSX.utils.book_new();
@@ -1218,20 +1222,39 @@ export class App {
 
   private loadEntriesFromApi(): void {
     const opt = this.sortOptions.find((o) => o.value === this.sortMode()) ?? this.sortOptions[0];
-    const params = new HttpParams()
-      .set('size', '1000')
-      .set('sortBy', opt.sortBy)
-      .set('sortDir', opt.sortDir);
+    this.fetchEntriesPage(0, [], opt.sortBy, opt.sortDir);
+  }
 
-    this.http.get<IncomeEntryResponse[]>(appSettings.entriesUrl, { params }).subscribe({
+  private fetchEntriesPage(
+    page: number,
+    accumulated: IncomeEntryResponse[],
+    sortBy: string,
+    sortDir: string,
+  ): void {
+    const params = new HttpParams()
+      .set('page', String(page))
+      .set('size', String(ENTRIES_PAGE_SIZE))
+      .set('sortBy', sortBy)
+      .set('sortDir', sortDir);
+
+    this.http.get<IncomeEntryPageResponse>(appSettings.entriesUrl, { params }).subscribe({
       next: (res) => {
-        this.entries.set(res.map((r) => this.mapIncomeEntryResponse(r)));
-        this.apiState.set('online');
+        const all = accumulated.concat(res.content);
+
+        if (res.metadata.last) {
+          this.entries.set(all.map((r) => this.mapIncomeEntryResponse(r)));
+          this.apiState.set('online');
+        } else {
+          this.fetchEntriesPage(page + 1, all, sortBy, sortDir);
+        }
       },
       error: (error: HttpErrorResponse) => {
         if (error.status === 401 || error.status === 403) {
           this.logout('Sesión caducada. Inicia sesión de nuevo para continuar.');
+          return;
         }
+
+        this.apiState.set('fallback');
       },
     });
   }
