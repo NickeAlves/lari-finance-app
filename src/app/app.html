@@ -153,10 +153,6 @@
           <svg lucideUser size="15"></svg>
           {{ currentUser()?.name || currentUser()?.email }}
         </div>
-        <button class="btn btn-secondary" type="button" (click)="refreshCalculations()">
-          <svg lucideRefreshCw size="17"></svg>
-          Recalcular API
-        </button>
         <button class="btn btn-secondary" type="button" (click)="logout()">
           <svg lucideLogOut size="17"></svg>
           Cerrar sesión
