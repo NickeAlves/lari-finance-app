@@ -12,4 +12,5 @@ export interface EntryModalState {
   notes: string;
   changeGiven: boolean;
   changeMethod: ChangeMethod | null;
+  changeAmount: number | null;
 }

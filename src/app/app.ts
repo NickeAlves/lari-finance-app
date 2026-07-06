@@ -65,6 +65,7 @@ interface PaymentEntry extends FinanceCalculation {
   notes?: string;
   changeGiven: boolean;
   changeMethod: ChangeMethod | null;
+  changeAmount: number | null;
   createdAt?: string;
   status: 'synced' | 'local';
 }
@@ -86,6 +87,7 @@ interface IncomeEntryResponse {
   changeGiven: boolean;
   changeMethod: string | null;
   changeMethodLabel: string | null;
+  changeAmount: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -110,6 +112,7 @@ interface IncomeEntryRequest {
   notes?: string | null;
   changeGiven: boolean;
   changeMethod?: string | null;
+  changeAmount?: number | null;
 }
 
 interface ReportTotals extends FinanceCalculation {
@@ -601,6 +604,7 @@ export class App {
       paymentMethod: 'Efectivo',
       changeGiven: false,
       changeMethod: null,
+      changeAmount: null,
       status: 'local',
       ...this.localCalculation(0),
     };
@@ -657,6 +661,7 @@ export class App {
       notes: prefill?.notes ?? '',
       changeGiven: false,
       changeMethod: null,
+      changeAmount: null,
     });
   }
 
@@ -674,6 +679,7 @@ export class App {
       notes: entry.notes ?? '',
       changeGiven: entry.changeGiven ?? false,
       changeMethod: entry.changeMethod ?? null,
+      changeAmount: entry.changeAmount ?? null,
     });
   }
 
@@ -689,6 +695,7 @@ export class App {
       notes: state.notes || null,
       changeGiven: state.changeGiven,
       changeMethod: state.changeMethod ? PAYMENT_METHOD_ENUM[state.changeMethod] : null,
+      changeAmount: state.changeGiven ? state.changeAmount : null,
     };
 
     if (state.mode === 'create') {
@@ -967,13 +974,15 @@ export class App {
     autoTable(document, {
       startY: summaryEndY + 10,
       head: [
-        ['Fecha', 'Cliente', 'Importe', 'Pago', 'IVA', 'Fijos', 'Productos', 'Salario', 'Impuestos'],
+        ['Fecha', 'Cliente', 'Importe', 'Pago', 'Cambio', 'Forma cambio', 'IVA', 'Fijos', 'Productos', 'Salario', 'Impuestos'],
       ],
       body: this.periodEntries().map((entry) => [
         this.formatDate(entry.date),
         entry.clientName || 'Sin nombre',
         this.money(entry.value),
         entry.paymentMethod,
+        entry.changeGiven ? this.money(entry.changeAmount ?? 0) : '',
+        entry.changeGiven ? (entry.changeMethod ?? '') : '',
         this.money(entry.iva),
         this.money(entry.fixedExpenses),
         this.money(entry.products),
@@ -1053,6 +1062,7 @@ export class App {
       notes: entry.notes ?? null,
       changeGiven: entry.changeGiven,
       changeMethod: entry.changeMethod ? PAYMENT_METHOD_ENUM[entry.changeMethod] : null,
+      changeAmount: entry.changeGiven ? entry.changeAmount : null,
     };
 
     this.http.post<IncomeEntryResponse>(appSettings.entriesUrl, body).subscribe({
@@ -1080,6 +1090,7 @@ export class App {
       notes: entry.notes ?? null,
       changeGiven: entry.changeGiven,
       changeMethod: entry.changeMethod ? PAYMENT_METHOD_ENUM[entry.changeMethod] : null,
+      changeAmount: entry.changeGiven ? entry.changeAmount : null,
     };
 
     this.http.put<IncomeEntryResponse>(`${appSettings.entriesUrl}/${entry.id}`, body).subscribe({
@@ -1124,6 +1135,7 @@ export class App {
       notes: r.notes ?? undefined,
       changeGiven: r.changeGiven,
       changeMethod: r.changeMethodLabel ? (r.changeMethodLabel as ChangeMethod) : null,
+      changeAmount: r.changeAmount == null ? null : Number(r.changeAmount),
       createdAt: r.createdAt,
       iva: Number(r.vatAmount),
       fixedExpenses: Number(r.fixedExpensesAmount),
@@ -1310,6 +1322,8 @@ export class App {
       'Nombre de la clienta': entry.clientName,
       Importe: entry.value,
       'Forma de pago': entry.paymentMethod,
+      Cambio: entry.changeGiven ? entry.changeAmount : '',
+      'Forma del cambio': entry.changeGiven ? entry.changeMethod : '',
       [this.financeLabels.iva]: entry.iva,
       [this.financeLabels.fixedExpenses]: entry.fixedExpenses,
       [this.financeLabels.products]: entry.products,
@@ -1477,6 +1491,7 @@ export class App {
       paymentMethod,
       changeGiven: false,
       changeMethod: null,
+      changeAmount: null,
       status: 'local',
       ...this.localCalculation(value),
     };

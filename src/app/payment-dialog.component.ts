@@ -30,6 +30,7 @@ export class PaymentDialogComponent implements OnChanges {
     notes: '',
     changeGiven: false,
     changeMethod: null,
+    changeAmount: null,
   };
 
   validationError: string | null = null;
@@ -52,6 +53,7 @@ export class PaymentDialogComponent implements OnChanges {
     if (method !== 'Efectivo') {
       this.form.changeGiven = false;
       this.form.changeMethod = null;
+      this.form.changeAmount = null;
     }
   }
 
@@ -63,6 +65,7 @@ export class PaymentDialogComponent implements OnChanges {
     this.form.changeGiven = value;
     if (!value) {
       this.form.changeMethod = null;
+      this.form.changeAmount = null;
     }
   }
 
@@ -78,6 +81,9 @@ export class PaymentDialogComponent implements OnChanges {
     if (this.form.value == null || this.form.value <= 0) missing.push('Importe');
     if (!this.form.date) missing.push('Fecha');
     if (this.form.changeGiven && !this.form.changeMethod) missing.push('Forma en la que se dio el cambio');
+    if (this.form.changeGiven && (this.form.changeAmount == null || this.form.changeAmount <= 0)) {
+      missing.push('Importe del cambio');
+    }
 
     if (missing.length > 0) {
       this.validationError = `Campos obligatorios: ${missing.join(', ')}`;

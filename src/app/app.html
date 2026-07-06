@@ -504,6 +504,9 @@
                       [value]="entry.paymentMethod"
                       (valueChange)="updateEntry(entry.id, 'paymentMethod', $any($event))"
                     />
+                    @if (entry.changeGiven) {
+                      <small class="change-badge">Cambio: {{ money(entry.changeAmount ?? 0) }} ({{ entry.changeMethod }})</small>
+                    }
                   </td>
                   <td>{{ money(entry.iva) }}</td>
                   <td>{{ money(entry.fixedExpenses) }}</td>
@@ -605,6 +608,12 @@
               </div>
 
               <dl class="auto-grid">
+                @if (entry.changeGiven) {
+                  <div>
+                    <dt>Cambio</dt>
+                    <dd>{{ money(entry.changeAmount ?? 0) }} ({{ entry.changeMethod }})</dd>
+                  </div>
+                }
                 <div>
                   <dt>IVA</dt>
                   <dd>{{ money(entry.iva) }}</dd>
