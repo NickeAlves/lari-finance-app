@@ -1,103 +1,101 @@
-<div class="calculator">
-  <div class="calc-display">
-    <span>{{ display() }}</span>
-  </div>
+<div class="calc-workspace">
+  <section class="calc-keypad-panel">
+    <div class="calc-display">
+      <span>{{ display() }}</span>
+    </div>
 
-  <div class="calc-keypad">
-    <button type="button" class="calc-key calc-key-fn" (click)="pressClear()">C</button>
-    <button type="button" class="calc-key calc-key-fn" (click)="pressBackspace()" aria-label="Borrar">
-      <svg lucideDelete size="18"></svg>
-    </button>
-    <button type="button" class="calc-key calc-key-fn" (click)="pressPercent()">%</button>
-    <button type="button" class="calc-key calc-key-op" (click)="pressOperator('÷')">÷</button>
+    <div class="calc-keypad">
+      <button type="button" class="calc-key calc-key-fn" (click)="pressClear()">C</button>
+      <button type="button" class="calc-key calc-key-fn" (click)="pressBackspace()" aria-label="Borrar">
+        <svg lucideDelete size="18"></svg>
+      </button>
+      <button type="button" class="calc-key calc-key-fn" (click)="pressPercent()">%</button>
+      <button type="button" class="calc-key calc-key-op" (click)="pressOperator('÷')">÷</button>
 
-    <button type="button" class="calc-key" (click)="pressDigit('7')">7</button>
-    <button type="button" class="calc-key" (click)="pressDigit('8')">8</button>
-    <button type="button" class="calc-key" (click)="pressDigit('9')">9</button>
-    <button type="button" class="calc-key calc-key-op" (click)="pressOperator('×')">×</button>
+      <button type="button" class="calc-key" (click)="pressDigit('7')">7</button>
+      <button type="button" class="calc-key" (click)="pressDigit('8')">8</button>
+      <button type="button" class="calc-key" (click)="pressDigit('9')">9</button>
+      <button type="button" class="calc-key calc-key-op" (click)="pressOperator('×')">×</button>
 
-    <button type="button" class="calc-key" (click)="pressDigit('4')">4</button>
-    <button type="button" class="calc-key" (click)="pressDigit('5')">5</button>
-    <button type="button" class="calc-key" (click)="pressDigit('6')">6</button>
-    <button type="button" class="calc-key calc-key-op" (click)="pressOperator('−')">−</button>
+      <button type="button" class="calc-key" (click)="pressDigit('4')">4</button>
+      <button type="button" class="calc-key" (click)="pressDigit('5')">5</button>
+      <button type="button" class="calc-key" (click)="pressDigit('6')">6</button>
+      <button type="button" class="calc-key calc-key-op" (click)="pressOperator('−')">−</button>
 
-    <button type="button" class="calc-key" (click)="pressDigit('1')">1</button>
-    <button type="button" class="calc-key" (click)="pressDigit('2')">2</button>
-    <button type="button" class="calc-key" (click)="pressDigit('3')">3</button>
-    <button type="button" class="calc-key calc-key-op" (click)="pressOperator('+')">+</button>
+      <button type="button" class="calc-key" (click)="pressDigit('1')">1</button>
+      <button type="button" class="calc-key" (click)="pressDigit('2')">2</button>
+      <button type="button" class="calc-key" (click)="pressDigit('3')">3</button>
+      <button type="button" class="calc-key calc-key-op" (click)="pressOperator('+')">+</button>
 
-    <button type="button" class="calc-key calc-key-zero" (click)="pressDigit('0')">0</button>
-    <button type="button" class="calc-key" (click)="pressDecimal()">.</button>
-    <button type="button" class="calc-key calc-key-equals" (click)="pressEquals()">=</button>
-  </div>
+      <button type="button" class="calc-key calc-key-zero" (click)="pressDigit('0')">0</button>
+      <button type="button" class="calc-key" (click)="pressDecimal()">.</button>
+      <button type="button" class="calc-key calc-key-equals" (click)="pressEquals()">=</button>
+    </div>
+  </section>
 
-  @if (showClassifier()) {
-    <div class="calc-classifier">
-      <div class="calc-type-tabs" role="tablist" aria-label="Tipo de movimiento">
-        <button type="button" [class.active]="entryType() === 'Entrada'" (click)="setEntryType('Entrada')">
-          Entrada
+  <section class="calc-entries-panel">
+    <div class="calc-entries-header">
+      <h3>Entradas y salidas</h3>
+      <div class="calc-entry-actions">
+        <button class="btn btn-secondary" type="button" (click)="openEntryModal('Entrada')">
+          <svg lucidePlus size="15"></svg>
+          Nueva entrada
         </button>
-        <button type="button" [class.active]="entryType() === 'Salida'" (click)="setEntryType('Salida')">
-          Salida
+        <button class="btn btn-secondary" type="button" (click)="openEntryModal('Salida')">
+          <svg lucidePlus size="15"></svg>
+          Nueva salida
         </button>
-      </div>
-
-      <label class="field">
-        <span>Fecha</span>
-        <app-date-picker [value]="entryDate()" (valueChange)="entryDate.set($event)" />
-      </label>
-
-      <label class="calc-checkbox">
-        <input
-          type="checkbox"
-          [checked]="includeInReports()"
-          (change)="setIncludeInReports($any($event.target).checked)"
-        />
-        Incluir en los informes
-      </label>
-
-      <div class="calc-actions">
-        <button class="btn btn-secondary" type="button" (click)="cancelResult()">Cancelar</button>
-        <button class="btn btn-primary" type="button" (click)="saveResult()">Guardar</button>
       </div>
     </div>
-  }
 
-  <section class="calc-history">
-    <h3>Historial</h3>
-    @for (entry of history(); track entry.id) {
-      <div class="calc-history-row">
-        <div class="calc-history-main">
-          <span class="calc-badge" [class.expense]="entry.type === 'Salida'">{{ entry.type }}</span>
-          <strong>{{ money(entry.type === 'Salida' ? -entry.amount : entry.amount) }}</strong>
+    <div class="calc-history">
+      @for (entry of history(); track entry.id) {
+        <div class="calc-history-row">
+          <div class="calc-history-main">
+            <span class="calc-badge" [class.expense]="entry.type === 'Salida'">{{ entry.type }}</span>
+            <strong>{{ money(entry.type === 'Salida' ? -entry.amount : entry.amount) }}</strong>
+          </div>
+          <div class="calc-history-meta">
+            <span>{{ formatDate(entry.date) }}</span>
+            @if (entry.expression) {
+              <small>{{ entry.expression }}</small>
+            }
+          </div>
+          <div class="calc-history-controls">
+            <label class="calc-checkbox">
+              <input
+                type="checkbox"
+                [checked]="entry.includeInReports"
+                (change)="toggleHistoryEntry(entry.id)"
+              />
+              Informes
+            </label>
+            @if (entry.type === 'Entrada') {
+              <button
+                class="calc-transfer"
+                type="button"
+                (click)="transferToPayments.emit(entry)"
+                aria-label="Transferir a Pagos"
+              >
+                <svg lucideWallet size="15"></svg>
+                Transferir
+              </button>
+            }
+            <button
+              class="calc-delete"
+              type="button"
+              (click)="removeHistoryEntry(entry.id)"
+              aria-label="Eliminar cálculo"
+            >
+              <svg lucideTrash2 size="15"></svg>
+            </button>
+          </div>
         </div>
-        <div class="calc-history-meta">
-          <span>{{ formatDate(entry.date) }}</span>
-          @if (entry.expression) {
-            <small>{{ entry.expression }}</small>
-          }
-        </div>
-        <div class="calc-history-controls">
-          <label class="calc-checkbox">
-            <input
-              type="checkbox"
-              [checked]="entry.includeInReports"
-              (change)="toggleHistoryEntry(entry.id)"
-            />
-            Informes
-          </label>
-          <button
-            class="calc-delete"
-            type="button"
-            (click)="removeHistoryEntry(entry.id)"
-            aria-label="Eliminar cálculo"
-          >
-            <svg lucideTrash2 size="15"></svg>
-          </button>
-        </div>
-      </div>
-    } @empty {
-      <p>No hay cálculos guardados todavía.</p>
-    }
+      } @empty {
+        <p>No hay entradas o salidas guardadas todavía.</p>
+      }
+    </div>
   </section>
 </div>
+
+<app-calculator-entry-dialog [modal]="entryModal()" (save)="saveEntry($event)" (close)="closeEntryModal()" />

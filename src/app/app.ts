@@ -36,9 +36,10 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
 import { CalculatorComponent } from './calculator.component';
+import { type CalculatorEntry } from './calculator.types';
 import { DatePickerComponent } from './date-picker.component';
 import { PaymentDialogComponent } from './payment-dialog.component';
-import { type EntryModalState, type PaymentMethod } from './payment.types';
+import { type ChangeMethod, type EntryModalState, type PaymentMethod } from './payment.types';
 import { PaySelectComponent } from './pay-select.component';
 import { AuthTokenStore } from './services/auth-token.store';
 import { CalculatorEntriesStore } from './services/calculator-entries.store';
@@ -62,6 +63,8 @@ interface PaymentEntry extends FinanceCalculation {
   value: number;
   paymentMethod: PaymentMethod;
   notes?: string;
+  changeGiven: boolean;
+  changeMethod: ChangeMethod | null;
   createdAt?: string;
   status: 'synced' | 'local';
 }
@@ -80,6 +83,9 @@ interface IncomeEntryResponse {
   annualTaxReserveAmount: number;
   dailyTotal: number;
   notes: string | null;
+  changeGiven: boolean;
+  changeMethod: string | null;
+  changeMethodLabel: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +108,8 @@ interface IncomeEntryRequest {
   amount: number;
   paymentMethod: string;
   notes?: string | null;
+  changeGiven: boolean;
+  changeMethod?: string | null;
 }
 
 interface ReportTotals extends FinanceCalculation {
@@ -591,6 +599,8 @@ export class App {
       clientName: '',
       value: 0,
       paymentMethod: 'Efectivo',
+      changeGiven: false,
+      changeMethod: null,
       status: 'local',
       ...this.localCalculation(0),
     };
@@ -631,15 +641,22 @@ export class App {
     }
   }
 
-  openCreateModal(): void {
+  transferCalculatorEntry(entry: CalculatorEntry): void {
+    this.activeTab.set('payments');
+    this.openCreateModal({ value: entry.amount, date: entry.date, notes: entry.expression ?? '' });
+  }
+
+  openCreateModal(prefill?: { value?: number; date?: string; notes?: string }): void {
     this.entryModal.set({
       mode: 'create',
       id: crypto.randomUUID(),
       clientName: '',
-      value: 0,
+      value: prefill?.value ?? 0,
       paymentMethod: 'Efectivo',
-      date: this.selectedDate(),
-      notes: '',
+      date: prefill?.date ?? this.selectedDate(),
+      notes: prefill?.notes ?? '',
+      changeGiven: false,
+      changeMethod: null,
     });
   }
 
@@ -655,6 +672,8 @@ export class App {
       paymentMethod: entry.paymentMethod,
       date: entry.date,
       notes: entry.notes ?? '',
+      changeGiven: entry.changeGiven ?? false,
+      changeMethod: entry.changeMethod ?? null,
     });
   }
 
@@ -668,6 +687,8 @@ export class App {
       amount: state.value ?? 0,
       paymentMethod: PAYMENT_METHOD_ENUM[state.paymentMethod],
       notes: state.notes || null,
+      changeGiven: state.changeGiven,
+      changeMethod: state.changeMethod ? PAYMENT_METHOD_ENUM[state.changeMethod] : null,
     };
 
     if (state.mode === 'create') {
@@ -1030,6 +1051,8 @@ export class App {
       amount: entry.value,
       paymentMethod: PAYMENT_METHOD_ENUM[entry.paymentMethod],
       notes: entry.notes ?? null,
+      changeGiven: entry.changeGiven,
+      changeMethod: entry.changeMethod ? PAYMENT_METHOD_ENUM[entry.changeMethod] : null,
     };
 
     this.http.post<IncomeEntryResponse>(appSettings.entriesUrl, body).subscribe({
@@ -1055,6 +1078,8 @@ export class App {
       amount: entry.value > 0 ? entry.value : 0.01,
       paymentMethod: PAYMENT_METHOD_ENUM[entry.paymentMethod],
       notes: entry.notes ?? null,
+      changeGiven: entry.changeGiven,
+      changeMethod: entry.changeMethod ? PAYMENT_METHOD_ENUM[entry.changeMethod] : null,
     };
 
     this.http.put<IncomeEntryResponse>(`${appSettings.entriesUrl}/${entry.id}`, body).subscribe({
@@ -1097,6 +1122,8 @@ export class App {
       value: Number(r.amount),
       paymentMethod: r.paymentMethodLabel as PaymentMethod,
       notes: r.notes ?? undefined,
+      changeGiven: r.changeGiven,
+      changeMethod: r.changeMethodLabel ? (r.changeMethodLabel as ChangeMethod) : null,
       createdAt: r.createdAt,
       iva: Number(r.vatAmount),
       fixedExpenses: Number(r.fixedExpensesAmount),
@@ -1448,6 +1475,8 @@ export class App {
       clientName,
       value,
       paymentMethod,
+      changeGiven: false,
+      changeMethod: null,
       status: 'local',
       ...this.localCalculation(value),
     };

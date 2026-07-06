@@ -14,7 +14,7 @@
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
-  width: min(480px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 8px 40px rgba(24, 24, 27, 0.18);
@@ -49,14 +49,9 @@
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease;
 
-  &:hover:not(:disabled) {
+  &:hover {
     border-color: rgba(24, 24, 27, 0.22);
     background: #fafafa;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 }
 
@@ -93,8 +88,6 @@
   font-weight: 600;
 }
 
-/* Form elements */
-
 .field {
   display: grid;
   gap: 7px;
@@ -111,63 +104,6 @@
   }
 }
 
-.change-section {
-  display: grid;
-  gap: 10px;
-  border: 1px solid rgba(24, 24, 27, 0.08);
-  border-radius: 10px;
-  padding: 12px 14px;
-  background: #f4f4f5;
-  transition: background 160ms ease, border-color 160ms ease;
-
-  &.emphasized {
-    border-color: rgba(15, 118, 110, 0.35);
-    background: rgba(20, 184, 166, 0.08);
-  }
-}
-
-.change-section-title {
-  color: #71717a;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.change-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid rgba(24, 24, 27, 0.08);
-  border-radius: 8px;
-  background: #ffffff;
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    border: 0;
-    border-radius: 6px;
-    color: #71717a;
-    background: transparent;
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: background 160ms ease, color 160ms ease;
-
-    &.active {
-      color: #ffffff;
-      background: #18181b;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-  }
-}
-
 input[type='number'] {
   -moz-appearance: textfield;
 
@@ -177,8 +113,7 @@ input[type='number'] {
   }
 }
 
-input,
-textarea {
+input {
   width: 100%;
   min-height: 40px;
   border: 1px solid rgba(24, 24, 27, 0.12);
@@ -195,20 +130,7 @@ textarea {
     border-color: #0f766e;
     box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
   }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 }
-
-textarea {
-  padding: 9px 11px;
-  resize: vertical;
-  min-height: 64px;
-}
-
-/* Buttons */
 
 .btn {
   display: inline-flex;
@@ -225,18 +147,13 @@ textarea {
   font-weight: 750;
   cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease;
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
 }
 
 .btn-primary {
   color: #ffffff;
   background: #18181b;
 
-  &:hover:not(:disabled) {
+  &:hover {
     background: #3f3f46;
   }
 }
@@ -246,19 +163,7 @@ textarea {
   color: #18181b;
   background: #ffffff;
 
-  &:hover:not(:disabled) {
+  &:hover {
     border-color: rgba(24, 24, 27, 0.22);
-  }
-}
-
-/* Spinner animation */
-
-.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
   }
 }

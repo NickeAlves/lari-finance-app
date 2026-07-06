@@ -1,25 +1,27 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { LucideDelete, LucideTrash2 } from '@lucide/angular';
+import { Component, computed, EventEmitter, inject, Output, signal } from '@angular/core';
+import { LucideDelete, LucidePlus, LucideTrash2, LucideWallet } from '@lucide/angular';
 import { appSettings } from './app-settings';
+import { CalculatorEntryDialogComponent } from './calculator-entry-dialog.component';
 import {
   CalculatorOperator,
   CalculatorState,
   initialCalculatorState,
   reduceCalculator,
 } from './calculator-engine';
-import { CalculatorEntryType } from './calculator.types';
-import { DatePickerComponent } from './date-picker.component';
+import { CalculatorEntry, CalculatorEntryModalState, CalculatorEntryType } from './calculator.types';
 import { CalculatorEntriesStore } from './services/calculator-entries.store';
 
 @Component({
   selector: 'app-calculator',
   standalone: true,
-  imports: [DatePickerComponent, LucideDelete, LucideTrash2],
+  imports: [CalculatorEntryDialogComponent, LucideDelete, LucidePlus, LucideTrash2, LucideWallet],
   templateUrl: './calculator.component.html',
   styleUrl: './calculator.component.scss',
 })
 export class CalculatorComponent {
   private readonly calculatorStore = inject(CalculatorEntriesStore);
+
+  @Output() transferToPayments = new EventEmitter<CalculatorEntry>();
 
   private readonly moneyFormatter = new Intl.NumberFormat(appSettings.locale, {
     style: 'currency',
@@ -33,14 +35,9 @@ export class CalculatorComponent {
   });
 
   readonly state = signal<CalculatorState>(initialCalculatorState());
-  readonly entryType = signal<CalculatorEntryType>('Entrada');
-  readonly entryDate = signal(this.toDateInput(new Date()));
-  readonly includeInReports = signal(false);
+  readonly entryModal = signal<CalculatorEntryModalState | null>(null);
 
   readonly display = computed(() => this.state().currentInput);
-  readonly showClassifier = computed(
-    () => this.state().justEvaluated && this.state().currentInput !== 'Error',
-  );
 
   readonly history = computed(() =>
     [...this.calculatorStore.entries()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -74,36 +71,31 @@ export class CalculatorComponent {
     this.state.set(initialCalculatorState());
   }
 
-  setEntryType(type: CalculatorEntryType): void {
-    this.entryType.set(type);
+  openEntryModal(type: CalculatorEntryType): void {
+    this.entryModal.set({
+      type,
+      date: this.toDateInput(new Date()),
+      amount: null,
+      description: '',
+    });
   }
 
-  setIncludeInReports(checked: boolean): void {
-    this.includeInReports.set(checked);
+  closeEntryModal(): void {
+    this.entryModal.set(null);
   }
 
-  saveResult(): void {
-    if (!this.showClassifier()) return;
-
-    const amount = Math.abs(Number(this.state().currentInput)) || 0;
-
+  saveEntry(state: CalculatorEntryModalState): void {
     this.calculatorStore.add({
       id: crypto.randomUUID(),
-      date: this.entryDate(),
-      amount,
-      type: this.entryType(),
-      includeInReports: this.includeInReports(),
-      expression: this.state().expression || this.state().currentInput,
+      date: state.date,
+      amount: Math.abs(state.amount ?? 0),
+      type: state.type,
+      includeInReports: false,
+      expression: state.description || undefined,
       createdAt: new Date().toISOString(),
     });
 
-    this.state.set(initialCalculatorState());
-    this.entryType.set('Entrada');
-    this.includeInReports.set(false);
-  }
-
-  cancelResult(): void {
-    this.state.set(initialCalculatorState());
+    this.entryModal.set(null);
   }
 
   toggleHistoryEntry(id: string): void {

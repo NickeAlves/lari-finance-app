@@ -9,3 +9,10 @@ export interface CalculatorEntry {
   expression?: string;
   createdAt: string;
 }
+
+export interface CalculatorEntryModalState {
+  type: CalculatorEntryType;
+  date: string;
+  amount: number | null;
+  description: string;
+}

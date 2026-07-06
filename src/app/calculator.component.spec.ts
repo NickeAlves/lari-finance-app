@@ -42,10 +42,9 @@ describe('CalculatorComponent', () => {
     expect(component.display()).toBe('42');
   });
 
-  it('reveals the classifier panel after pressing equals', () => {
+  it('pressEquals() resolves the pending operation without touching the entries panel', () => {
     const fixture = TestBed.createComponent(CalculatorComponent);
     const component = fixture.componentInstance;
-    expect(component.showClassifier()).toBe(false);
 
     component.pressDigit('5');
     component.pressOperator('+');
@@ -53,23 +52,44 @@ describe('CalculatorComponent', () => {
     component.pressEquals();
 
     expect(component.display()).toBe('8');
-    expect(component.showClassifier()).toBe(true);
+    expect(component.entryModal()).toBeNull();
+    expect(component.history().length).toBe(0);
   });
 
-  it('saveResult() adds an entry to the history and resets the display', () => {
+  it('openEntryModal() opens the entry dialog pre-filled with the given type', () => {
     const fixture = TestBed.createComponent(CalculatorComponent);
     const component = fixture.componentInstance;
 
-    component.pressDigit('1');
-    component.pressDigit('0');
-    component.pressEquals();
-    component.setEntryType('Salida');
-    component.saveResult();
+    component.openEntryModal('Salida');
+
+    expect(component.entryModal()).not.toBeNull();
+    expect(component.entryModal()?.type).toBe('Salida');
+  });
+
+  it('saveEntry() adds an entry to the history and closes the dialog', () => {
+    const fixture = TestBed.createComponent(CalculatorComponent);
+    const component = fixture.componentInstance;
+
+    component.openEntryModal('Salida');
+    component.saveEntry({ type: 'Salida', date: '2026-07-06', amount: 10, description: 'Materiales' });
 
     expect(component.history().length).toBe(1);
     expect(component.history()[0].amount).toBe(10);
     expect(component.history()[0].type).toBe('Salida');
-    expect(component.display()).toBe('0');
-    expect(component.showClassifier()).toBe(false);
+    expect(component.history()[0].includeInReports).toBe(false);
+    expect(component.entryModal()).toBeNull();
+  });
+
+  it('transferToPayments emits the entry when requested', () => {
+    const fixture = TestBed.createComponent(CalculatorComponent);
+    const component = fixture.componentInstance;
+    const emitted: unknown[] = [];
+    component.transferToPayments.subscribe((entry) => emitted.push(entry));
+
+    component.saveEntry({ type: 'Entrada', date: '2026-07-06', amount: 25, description: 'Propina' });
+    const [entry] = component.history();
+    component.transferToPayments.emit(entry);
+
+    expect(emitted).toEqual([entry]);
   });
 });

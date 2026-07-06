@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideAlertCircle, LucideLoaderCircle, LucideX } from '@lucide/angular';
 import { DatePickerComponent } from './date-picker.component';
 import { PaySelectComponent } from './pay-select.component';
-import { EntryModalState, PaymentMethod } from './payment.types';
+import { ChangeMethod, EntryModalState, PaymentMethod } from './payment.types';
 
 @Component({
   selector: 'app-payment-dialog',
@@ -28,6 +28,8 @@ export class PaymentDialogComponent implements OnChanges {
     paymentMethod: 'Efectivo',
     date: '',
     notes: '',
+    changeGiven: false,
+    changeMethod: null,
   };
 
   validationError: string | null = null;
@@ -39,6 +41,35 @@ export class PaymentDialogComponent implements OnChanges {
     }
   }
 
+  onPaymentMethodChange(method: PaymentMethod): void {
+    this.form.paymentMethod = method;
+
+    if (method === 'Bizum') {
+      this.form.changeGiven = true;
+      return;
+    }
+
+    if (method !== 'Efectivo') {
+      this.form.changeGiven = false;
+      this.form.changeMethod = null;
+    }
+  }
+
+  showChangeSection(): boolean {
+    return this.form.paymentMethod === 'Efectivo' || this.form.paymentMethod === 'Bizum';
+  }
+
+  setChangeGiven(value: boolean): void {
+    this.form.changeGiven = value;
+    if (!value) {
+      this.form.changeMethod = null;
+    }
+  }
+
+  setChangeMethod(method: ChangeMethod): void {
+    this.form.changeMethod = method;
+  }
+
   submit(): void {
     if (this.saving) return;
 
@@ -46,6 +77,7 @@ export class PaymentDialogComponent implements OnChanges {
     if (!this.form.clientName?.trim()) missing.push('Nombre de la clienta');
     if (this.form.value == null || this.form.value <= 0) missing.push('Importe');
     if (!this.form.date) missing.push('Fecha');
+    if (this.form.changeGiven && !this.form.changeMethod) missing.push('Forma en la que se dio el cambio');
 
     if (missing.length > 0) {
       this.validationError = `Campos obligatorios: ${missing.join(', ')}`;

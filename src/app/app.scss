@@ -304,11 +304,10 @@ button {
   background: rgba(255, 255, 255, 0.12);
   font-size: 0.82rem;
   font-weight: 700;
+}
 
-  &.online {
-    color: #dcfce7;
-    border-color: rgba(187, 247, 208, 0.42);
-  }
+.btn-pill {
+  border-radius: 999px;
 }
 
 .user-pill {
@@ -322,29 +321,36 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  max-width: 320px;
-  padding: 4px;
+  width: 100%;
+  max-width: 360px;
+  margin: 24px auto 0;
+  padding: 5px;
   border: 1px solid rgba(24, 24, 27, 0.08);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #f4f4f5;
+  box-shadow: 0 10px 30px rgba(24, 24, 27, 0.06);
 
   button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    min-height: 38px;
+    gap: 7px;
+    min-height: 42px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 9px;
     color: #71717a;
     background: transparent;
-    font-size: 0.84rem;
+    font-size: 0.88rem;
     font-weight: 850;
+    transition:
+      color 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
 
     &.active {
       color: #18181b;
       background: #ffffff;
-      box-shadow: 0 8px 18px rgba(24, 24, 27, 0.08);
+      box-shadow: 0 8px 18px rgba(24, 24, 27, 0.1);
     }
   }
 }

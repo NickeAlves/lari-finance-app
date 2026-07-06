@@ -54,9 +54,55 @@
         <app-pay-select
           [options]="paymentMethods"
           [value]="form.paymentMethod"
-          (valueChange)="form.paymentMethod = $any($event)"
+          (valueChange)="onPaymentMethodChange($any($event))"
         />
       </label>
+
+      @if (showChangeSection()) {
+        <div class="change-section" [class.emphasized]="form.paymentMethod === 'Bizum'">
+          <span class="change-section-title">¿Fue necesario dar cambio?</span>
+          <div class="change-toggle">
+            <button
+              type="button"
+              [class.active]="!form.changeGiven"
+              (click)="setChangeGiven(false)"
+              [disabled]="saving"
+            >
+              No
+            </button>
+            <button
+              type="button"
+              [class.active]="form.changeGiven"
+              (click)="setChangeGiven(true)"
+              [disabled]="saving"
+            >
+              Sí
+            </button>
+          </div>
+
+          @if (form.changeGiven) {
+            <span class="change-section-title">¿Cómo se dio el cambio?</span>
+            <div class="change-toggle">
+              <button
+                type="button"
+                [class.active]="form.changeMethod === 'Efectivo'"
+                (click)="setChangeMethod('Efectivo')"
+                [disabled]="saving"
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                [class.active]="form.changeMethod === 'Bizum'"
+                (click)="setChangeMethod('Bizum')"
+                [disabled]="saving"
+              >
+                Bizum
+              </button>
+            </div>
+          }
+        </div>
+      }
 
       <label class="field">
         <span>Notas <small>(opcional)</small></span>

@@ -153,13 +153,10 @@
           <svg lucideUser size="15"></svg>
           {{ currentUser()?.name || currentUser()?.email }}
         </div>
-        <button class="btn btn-secondary" type="button" (click)="logout()">
+        <button class="btn btn-secondary btn-pill" type="button" (click)="logout()">
           <svg lucideLogOut size="17"></svg>
           Cerrar sesión
         </button>
-        <div class="status-pill" [class.online]="apiState() === 'online'">
-          {{ apiState() === 'online' ? 'API conectada' : 'Cálculo local hasta conectar la API' }}
-        </div>
       </div>
     </section>
 
@@ -815,7 +812,7 @@
       </div>
     </section>
     } @else {
-      <app-calculator />
+      <app-calculator (transferToPayments)="transferCalculatorEntry($event)" />
     }
   </main>
 }
