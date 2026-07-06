@@ -4,6 +4,7 @@ import { Component, computed, effect, HostListener, inject, signal } from '@angu
 import { FormsModule } from '@angular/forms';
 import {
   LucideBadgeEuro,
+  LucideCalculator,
   LucideCalendar,
   LucideChartNoAxesCombined,
   LucideCheck,
@@ -34,13 +35,16 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { appSettings, type FinanceRates } from './app-settings';
+import { CalculatorComponent } from './calculator.component';
 import { DatePickerComponent } from './date-picker.component';
 import { PaymentDialogComponent } from './payment-dialog.component';
 import { type EntryModalState, type PaymentMethod } from './payment.types';
 import { PaySelectComponent } from './pay-select.component';
 import { AuthTokenStore } from './services/auth-token.store';
-type PeriodMode = 'day' | 'week' | 'month' | 'custom';
+import { CalculatorEntriesStore } from './services/calculator-entries.store';
+type PeriodMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 type AuthMode = 'login' | 'register';
+type AppTab = 'payments' | 'calculator';
 
 interface FinanceCalculation {
   iva: number;
@@ -174,6 +178,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     FormsModule,
     LucideArrowUpDown,
     LucideBadgeEuro,
+    LucideCalculator,
     LucideCalendar,
     LucideChartNoAxesCombined,
     LucideCheck,
@@ -201,6 +206,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
     PaySelectComponent,
     PaymentDialogComponent,
     DatePickerComponent,
+    CalculatorComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -208,6 +214,7 @@ const PAYMENT_METHOD_ENUM: Record<PaymentMethod, string> = {
 export class App {
   private readonly http = inject(HttpClient);
   private readonly authTokenStore = inject(AuthTokenStore);
+  private readonly calculatorStore = inject(CalculatorEntriesStore);
   private readonly financeRates = appSettings.rates;
   private readonly saveTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly moneyFormatter = new Intl.NumberFormat(appSettings.locale, {
@@ -239,6 +246,7 @@ export class App {
     annualTaxReserve: `Reserva impuestos ${this.percent(this.financeRates.annualTaxReserve)}`,
   };
 
+  readonly activeTab = signal<AppTab>('payments');
   readonly selectedDate = signal(this.toDateInput(new Date()));
   readonly calendarMonth = signal(this.monthStart(new Date()));
   readonly periodMode = signal<PeriodMode>('day');
@@ -319,6 +327,13 @@ export class App {
       };
     }
 
+    if (this.periodMode() === 'year') {
+      return {
+        from: this.toDateInput(new Date(selected.getFullYear(), 0, 1)),
+        to: this.toDateInput(new Date(selected.getFullYear(), 11, 31)),
+      };
+    }
+
     if (this.periodMode() === 'custom') {
       return {
         from: this.customFrom(),
@@ -346,6 +361,26 @@ export class App {
 
   readonly dayTotals = computed(() => this.calculateTotals(this.selectedDayEntries()));
   readonly reportTotals = computed(() => this.calculateTotals(this.periodEntries()));
+
+  // Calculator entries never join `entries`/`periodEntries` — only their net
+  // (entradas - salidas) feeds the reports, and only when flagged by the user.
+  readonly calculatorPeriodEntries = computed(() => {
+    const { from, to } = this.periodRange();
+    return this.calculatorStore
+      .entries()
+      .filter((entry) => entry.includeInReports && entry.date >= from && entry.date <= to);
+  });
+
+  readonly calculatorPeriodTotals = computed(() =>
+    this.calculatorPeriodEntries().reduce(
+      (acc, entry) => ({
+        entradas: acc.entradas + (entry.type === 'Entrada' ? entry.amount : 0),
+        salidas: acc.salidas + (entry.type === 'Salida' ? entry.amount : 0),
+        net: acc.net + (entry.type === 'Entrada' ? entry.amount : -entry.amount),
+      }),
+      { entradas: 0, salidas: 0, net: 0 },
+    ),
+  );
 
   readonly popoverMonthLabel = computed(() => this.monthFormatter.format(this.popoverMonth()));
   readonly popoverCurrentMonth = computed(() => this.popoverMonth().getMonth());
@@ -417,6 +452,7 @@ export class App {
   readonly dailyReports = computed(() => this.groupByDate(this.periodEntries()));
   readonly weeklyReports = computed(() => this.groupByWeek(this.entries()));
   readonly monthlyReports = computed(() => this.groupByMonth(this.entries()));
+  readonly yearlyReports = computed(() => this.groupByYear(this.entries()));
 
   readonly topClient = computed(() => {
     const clients = new Map<string, number>();
@@ -434,6 +470,7 @@ export class App {
       day: 'Informe diario',
       week: 'Informe semanal',
       month: 'Informe mensual',
+      year: 'Informe anual',
       custom: 'Informe por periodo',
     };
 
@@ -836,6 +873,10 @@ export class App {
     this.periodMode.set(period);
   }
 
+  setActiveTab(tab: AppTab): void {
+    this.activeTab.set(tab);
+  }
+
   exportExcel(): void {
     const rows = this.periodEntries().map((entry) => this.exportRow(entry));
     const workbook = XLSX.utils.book_new();
@@ -851,6 +892,9 @@ export class App {
         Salario: this.reportTotals().salary,
         'Reserva impuestos': this.reportTotals().annualTaxReserve,
         'Ticket medio': this.reportTotals().averageTicket,
+        'Entradas (Calculadora)': this.calculatorPeriodTotals().entradas,
+        'Salidas (Calculadora)': this.calculatorPeriodTotals().salidas,
+        'Neto (Calculadora)': this.calculatorPeriodTotals().net,
       },
     ]);
     const payments = XLSX.utils.json_to_sheet(
@@ -889,6 +933,9 @@ export class App {
         [this.financeLabels.salary, this.money(totals.salary)],
         [this.financeLabels.annualTaxReserve, this.money(totals.annualTaxReserve)],
         ['Ticket medio', this.money(totals.averageTicket)],
+        ['Entradas (Calculadora)', this.money(this.calculatorPeriodTotals().entradas)],
+        ['Salidas (Calculadora)', this.money(this.calculatorPeriodTotals().salidas)],
+        ['Neto (Calculadora)', this.money(this.calculatorPeriodTotals().net)],
       ],
       theme: 'grid',
       styles: { fontSize: 9 },
@@ -1109,6 +1156,9 @@ export class App {
     };
   }
 
+  // Each grouping also seeds a bucket for periods that have calculator
+  // activity but no real payment entries yet, so an Entrada/Salida flagged
+  // "incluir en los informes" always surfaces here, not just in the top KPIs.
   private groupByDate(entries: PaymentEntry[]) {
     const groups = new Map<string, PaymentEntry[]>();
 
@@ -1116,36 +1166,68 @@ export class App {
       groups.set(entry.date, [...(groups.get(entry.date) ?? []), entry]);
     }
 
+    for (const calcEntry of this.calculatorPeriodEntries()) {
+      if (!groups.has(calcEntry.date)) {
+        groups.set(calcEntry.date, []);
+      }
+    }
+
     return [...groups.entries()].map(([date, dateEntries]) => ({
       label: this.formatDate(date),
       total: this.calculateTotals(dateEntries),
+      calculatorNet: this.calculatorNetForRange(date, date),
     }));
   }
 
   private groupByWeek(entries: PaymentEntry[]) {
     const groups = new Map<string, PaymentEntry[]>();
+    const weekStart = (dateInput: string) => {
+      const date = this.parseDate(dateInput);
+      return this.toDateInput(this.addDays(date, -((date.getDay() + 6) % 7)));
+    };
 
     for (const entry of entries) {
-      const date = this.parseDate(entry.date);
-      const monday = this.addDays(date, -((date.getDay() + 6) % 7));
-      const sunday = this.addDays(monday, 6);
-      const label = `${this.formatDate(this.toDateInput(monday))} - ${this.formatDate(this.toDateInput(sunday))}`;
-      groups.set(label, [...(groups.get(label) ?? []), entry]);
+      const key = weekStart(entry.date);
+      groups.set(key, [...(groups.get(key) ?? []), entry]);
     }
 
-    return [...groups.entries()].map(([label, weekEntries]) => ({
-      label,
-      total: this.calculateTotals(weekEntries),
-    }));
+    for (const calcEntry of this.calculatorStore.entries()) {
+      if (!calcEntry.includeInReports) continue;
+      const key = weekStart(calcEntry.date);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+    }
+
+    return [...groups.entries()].map(([mondayInput, weekEntries]) => {
+      const sunday = this.toDateInput(this.addDays(this.parseDate(mondayInput), 6));
+
+      return {
+        label: `${this.formatDate(mondayInput)} - ${this.formatDate(sunday)}`,
+        total: this.calculateTotals(weekEntries),
+        calculatorNet: this.calculatorNetForRange(mondayInput, sunday),
+      };
+    });
   }
 
   private groupByMonth(entries: PaymentEntry[]) {
     const groups = new Map<string, PaymentEntry[]>();
+    const monthKey = (dateInput: string) => {
+      const date = this.parseDate(dateInput);
+      return `${date.getFullYear()}-${date.getMonth()}`;
+    };
 
     for (const entry of entries) {
-      const date = this.parseDate(entry.date);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      const key = monthKey(entry.date);
       groups.set(key, [...(groups.get(key) ?? []), entry]);
+    }
+
+    for (const calcEntry of this.calculatorStore.entries()) {
+      if (!calcEntry.includeInReports) continue;
+      const key = monthKey(calcEntry.date);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
     }
 
     return [...groups.entries()].map(([key, monthEntries]) => {
@@ -1154,8 +1236,45 @@ export class App {
       return {
         label: this.monthFormatter.format(new Date(year, month, 1)),
         total: this.calculateTotals(monthEntries),
+        calculatorNet: this.calculatorNetForRange(
+          this.toDateInput(new Date(year, month, 1)),
+          this.toDateInput(new Date(year, month + 1, 0)),
+        ),
       };
     });
+  }
+
+  private groupByYear(entries: PaymentEntry[]) {
+    const groups = new Map<number, PaymentEntry[]>();
+
+    for (const entry of entries) {
+      const year = this.parseDate(entry.date).getFullYear();
+      groups.set(year, [...(groups.get(year) ?? []), entry]);
+    }
+
+    for (const calcEntry of this.calculatorStore.entries()) {
+      if (!calcEntry.includeInReports) continue;
+      const year = this.parseDate(calcEntry.date).getFullYear();
+      if (!groups.has(year)) {
+        groups.set(year, []);
+      }
+    }
+
+    return [...groups.entries()].map(([year, yearEntries]) => ({
+      label: String(year),
+      total: this.calculateTotals(yearEntries),
+      calculatorNet: this.calculatorNetForRange(
+        this.toDateInput(new Date(year, 0, 1)),
+        this.toDateInput(new Date(year, 11, 31)),
+      ),
+    }));
+  }
+
+  private calculatorNetForRange(from: string, to: string): number {
+    return this.calculatorStore
+      .entries()
+      .filter((entry) => entry.includeInReports && entry.date >= from && entry.date <= to)
+      .reduce((sum, entry) => sum + (entry.type === 'Entrada' ? entry.amount : -entry.amount), 0);
   }
 
   private exportRow(entry: PaymentEntry) {

@@ -16,8 +16,11 @@ One root component (`app.ts`) owns all core logic: authentication, entry CRUD, f
 | `src/app/payment-dialog.component.ts` | Modal for creating and editing payment entries |
 | `src/app/date-picker.component.ts` | Reusable date picker (replaces native `<input type="date">`) |
 | `src/app/pay-select.component.ts` | Payment method dropdown selector |
+| `src/app/calculator.component.ts` | "Calculadora" tab — keypad UI, Entrada/Salida classification, calculator entry history |
+| `src/app/calculator-engine.ts` | Pure, non-`eval` arithmetic state machine backing the calculator keypad |
 | `src/app/interceptors/auth.interceptor.ts` | Adds `Authorization: Bearer <token>` to all HTTP requests |
 | `src/app/services/auth-token.store.ts` | Reads/writes auth token from localStorage |
+| `src/app/services/calculator-entries.store.ts` | Reads/writes calculator entries from localStorage, independent of `entries` in `app.ts` |
 
 ## Domain types
 
@@ -34,7 +37,22 @@ interface EntryModalState {
   date: string;
   notes: string;
 }
+
+// calculator.types.ts
+type CalculatorEntryType = 'Entrada' | 'Salida';
+
+interface CalculatorEntry {
+  id: string;
+  date: string;
+  amount: number;
+  type: CalculatorEntryType;
+  includeInReports: boolean;   // opt-in per calculation; default false
+  expression?: string;
+  createdAt: string;
+}
 ```
+
+Calculator entries are isolated from `PaymentEntry`/`entries` — they never join the main entry list. Only when `includeInReports` is true does an entry's net amount (not the record itself) feed into the day/week/month/year report totals, via `App`'s `calculatorPeriodTotals`/`calculatorNetForRange`.
 
 ## Runtime configuration
 
@@ -46,6 +64,7 @@ interface EntryModalState {
 |---|---|
 | `lari-finance-auth-v1` | Auth token (string) |
 | `lari-finance-payments-v1` | Pending-sync entry cache (JSON array) |
+| `lari-finance-calculator-v1` | Calculator entry history (JSON array of `CalculatorEntry`) |
 
 ## Development commands
 

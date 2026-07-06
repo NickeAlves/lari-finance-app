@@ -163,6 +163,18 @@
       </div>
     </section>
 
+    <nav class="app-tabs" role="tablist" aria-label="Secciones">
+      <button type="button" [class.active]="activeTab() === 'payments'" (click)="setActiveTab('payments')">
+        <svg lucideWallet size="16"></svg>
+        Pagos
+      </button>
+      <button type="button" [class.active]="activeTab() === 'calculator'" (click)="setActiveTab('calculator')">
+        <svg lucideCalculator size="16"></svg>
+        Calculadora
+      </button>
+    </nav>
+
+    @if (activeTab() === 'payments') {
     <section class="summary-grid" aria-label="Resumen principal">
       <article class="metric-card primary">
         <div>
@@ -272,6 +284,13 @@
             (click)="setPeriod('month')"
           >
             Mes
+          </button>
+          <button
+            type="button"
+            [class.active]="periodMode() === 'year'"
+            (click)="setPeriod('year')"
+          >
+            Año
           </button>
           <button
             type="button"
@@ -712,6 +731,15 @@
             <div>
               <span>Total destacado</span><strong>{{ money(topClient()[1]) }}</strong>
             </div>
+            <div>
+              <span>Entradas (Calculadora)</span><strong>{{ money(calculatorPeriodTotals().entradas) }}</strong>
+            </div>
+            <div>
+              <span>Salidas (Calculadora)</span><strong>{{ money(calculatorPeriodTotals().salidas) }}</strong>
+            </div>
+            <div>
+              <span>Neto (Calculadora)</span><strong>{{ money(calculatorPeriodTotals().net) }}</strong>
+            </div>
           </div>
         </article>
       </div>
@@ -724,6 +752,12 @@
               <span>{{ item.label }}</span>
               <strong>{{ money(item.total.revenue) }}</strong>
             </div>
+            @if (item.calculatorNet) {
+              <div class="history-row calc-row">
+                <span>Calculadora</span>
+                <strong>{{ money(item.calculatorNet) }}</strong>
+              </div>
+            }
           } @empty {
             <p>Sin movimientos en el periodo.</p>
           }
@@ -736,6 +770,12 @@
               <span>{{ item.label }}</span>
               <strong>{{ money(item.total.revenue) }}</strong>
             </div>
+            @if (item.calculatorNet) {
+              <div class="history-row calc-row">
+                <span>Calculadora</span>
+                <strong>{{ money(item.calculatorNet) }}</strong>
+              </div>
+            }
           }
         </article>
 
@@ -746,10 +786,37 @@
               <span>{{ item.label }}</span>
               <strong>{{ money(item.total.revenue) }}</strong>
             </div>
+            @if (item.calculatorNet) {
+              <div class="history-row calc-row">
+                <span>Calculadora</span>
+                <strong>{{ money(item.calculatorNet) }}</strong>
+              </div>
+            }
+          }
+        </article>
+
+        <article class="history-panel">
+          <h3>Anual</h3>
+          @for (item of yearlyReports(); track item.label) {
+            <div class="history-row">
+              <span>{{ item.label }}</span>
+              <strong>{{ money(item.total.revenue) }}</strong>
+            </div>
+            @if (item.calculatorNet) {
+              <div class="history-row calc-row">
+                <span>Calculadora</span>
+                <strong>{{ money(item.calculatorNet) }}</strong>
+              </div>
+            }
+          } @empty {
+            <p>Sin movimientos en el periodo.</p>
           }
         </article>
       </div>
     </section>
+    } @else {
+      <app-calculator />
+    }
   </main>
 }
 
