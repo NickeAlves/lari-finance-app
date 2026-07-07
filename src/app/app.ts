@@ -61,6 +61,7 @@ interface PaymentEntry extends FinanceCalculation {
   date: string;
   clientName: string;
   value: number;
+  netAmount: number;
   paymentMethod: PaymentMethod;
   notes?: string;
   changeGiven: boolean;
@@ -75,6 +76,7 @@ interface IncomeEntryResponse {
   date: string;
   clientName: string;
   amount: number;
+  netAmount: number;
   paymentMethod: string;
   paymentMethodLabel: string;
   vatAmount: number;
@@ -113,6 +115,25 @@ interface IncomeEntryRequest {
   changeGiven: boolean;
   changeMethod?: string | null;
   changeAmount?: number | null;
+}
+
+interface ReportSummaryResponse {
+  from: string;
+  to: string;
+  servicesCount: number;
+  totalAmount: number;
+  vatAmount: number;
+  fixedExpensesAmount: number;
+  productsAmount: number;
+  salaryAmount: number;
+  annualTaxReserveAmount: number;
+  paymentMethods: {
+    method: string;
+    label: string;
+    servicesCount: number;
+    totalAmount: number;
+  }[];
+  days: { date: string; servicesCount: number; totalAmount: number }[];
 }
 
 interface ReportTotals extends FinanceCalculation {
@@ -271,6 +292,7 @@ export class App {
   readonly popoverDateText = signal<string>('');
   readonly apiState = signal<'online' | 'fallback'>('fallback');
   readonly entries = signal<PaymentEntry[]>(this.loadEntries());
+  readonly reportSummary = signal<ReportSummaryResponse | null>(null);
   readonly authSession = signal<AuthSession | null>(this.loadAuthSession());
   readonly authChecking = signal(Boolean(this.authSession()?.token));
   readonly authMode = signal<AuthMode>('login');
@@ -431,7 +453,7 @@ export class App {
       const dateInput = this.toDateInput(date);
       const total = this.entries()
         .filter((entry) => entry.date === dateInput)
-        .reduce((sum, entry) => sum + entry.value, 0);
+        .reduce((sum, entry) => sum + entry.netAmount, 0);
 
       return {
         date: dateInput,
@@ -445,16 +467,23 @@ export class App {
   });
 
   readonly paymentBreakdown = computed(() => {
-    const total = this.reportTotals().revenue || 1;
+    const summary = this.reportSummary();
+
+    if (!summary) {
+      return PAYMENT_METHODS.map((method) => ({ method, value: 0, count: 0, percent: 0 }));
+    }
+
+    const total = summary.totalAmount || 1;
+    const byLabel = new Map(summary.paymentMethods.map((m) => [m.label, m]));
 
     return PAYMENT_METHODS.map((method) => {
-      const methodEntries = this.periodEntries().filter((entry) => entry.paymentMethod === method);
-      const value = methodEntries.reduce((sum, entry) => sum + entry.value, 0);
+      const bucket = byLabel.get(method);
+      const value = bucket?.totalAmount ?? 0;
 
       return {
         method,
         value,
-        count: methodEntries.length,
+        count: bucket?.servicesCount ?? 0,
         percent: Math.round((value / total) * 100),
       };
     });
@@ -491,6 +520,20 @@ export class App {
   constructor() {
     effect(() => {
       this.browserStorage()?.setItem(STORAGE_KEY, JSON.stringify(this.entries()));
+    });
+
+    effect(() => {
+      const { from, to } = this.periodRange();
+
+      if (!this.authenticated()) {
+        return;
+      }
+
+      const params = new HttpParams().set('from', from).set('to', to);
+      this.http.get<ReportSummaryResponse>(appSettings.reportsSummaryUrl, { params }).subscribe({
+        next: (summary) => this.reportSummary.set(summary),
+        error: () => this.reportSummary.set(null),
+      });
     });
 
     if (this.authSession()?.token) {
@@ -601,6 +644,7 @@ export class App {
       date: this.selectedDate(),
       clientName: '',
       value: 0,
+      netAmount: 0,
       paymentMethod: 'Efectivo',
       changeGiven: false,
       changeMethod: null,
@@ -1131,6 +1175,7 @@ export class App {
       date: r.date,
       clientName: r.clientName,
       value: Number(r.amount),
+      netAmount: Number(r.netAmount),
       paymentMethod: r.paymentMethodLabel as PaymentMethod,
       notes: r.notes ?? undefined,
       changeGiven: r.changeGiven,
@@ -1168,7 +1213,7 @@ export class App {
   private calculateTotals(entries: PaymentEntry[]): ReportTotals {
     const totals = entries.reduce(
       (acc, entry) => ({
-        revenue: acc.revenue + entry.value,
+        revenue: acc.revenue + entry.netAmount,
         iva: acc.iva + entry.iva,
         fixedExpenses: acc.fixedExpenses + entry.fixedExpenses,
         products: acc.products + entry.products,
@@ -1488,6 +1533,7 @@ export class App {
       date,
       clientName,
       value,
+      netAmount: value,
       paymentMethod,
       changeGiven: false,
       changeMethod: null,

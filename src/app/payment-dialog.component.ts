@@ -90,6 +90,16 @@ export class PaymentDialogComponent implements OnChanges {
       return;
     }
 
+    if (
+      this.form.changeGiven &&
+      this.form.value != null &&
+      this.form.changeAmount != null &&
+      this.form.changeAmount >= this.form.value
+    ) {
+      this.validationError = 'El cambio no puede ser mayor o igual que el importe';
+      return;
+    }
+
     this.validationError = null;
     this.save.emit({ ...this.form });
   }

@@ -28,6 +28,7 @@ export interface AppSettings {
   authLoginUrl: string;
   authRegisterUrl: string;
   entriesUrl: string;
+  reportsSummaryUrl: string;
   locale: string;
   currency: string;
   heroImageUrl: string;
@@ -46,6 +47,7 @@ const defaults: AppSettings = {
   authLoginUrl: '/api/auth/login',
   authRegisterUrl: '/api/auth/register',
   entriesUrl: '/api/entries',
+  reportsSummaryUrl: '/api/reports/summary',
   locale: 'es-ES',
   currency: 'EUR',
   heroImageUrl: '/hero-lari-finance.jpeg',
@@ -71,6 +73,7 @@ export const appSettings: AppSettings = {
   authLoginUrl: joinUrl(apiBaseUrl, '/auth/login'),
   authRegisterUrl: joinUrl(apiBaseUrl, '/auth/register'),
   entriesUrl: joinUrl(apiBaseUrl, '/entries'),
+  reportsSummaryUrl: joinUrl(apiBaseUrl, '/reports/summary'),
   locale: stringSetting(runtimeConfig.locale, defaults.locale),
   currency: stringSetting(runtimeConfig.currency, defaults.currency),
   heroImageUrl: stringSetting(runtimeConfig.heroImageUrl, defaults.heroImageUrl),
