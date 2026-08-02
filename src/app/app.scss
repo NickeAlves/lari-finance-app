@@ -355,6 +355,19 @@ button {
   }
 }
 
+.api-warning {
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  max-width: 640px;
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  border-radius: 8px;
+  color: #9a3412;
+  background: #fff7ed;
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-align: center;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: 1.35fr repeat(3, 1fr);

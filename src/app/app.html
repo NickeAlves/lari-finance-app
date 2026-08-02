@@ -171,6 +171,12 @@
       </button>
     </nav>
 
+    @if (apiState() === 'fallback') {
+      <p class="api-warning" role="status">
+        Sin conexión con la API · mostrando los datos guardados en este dispositivo.
+      </p>
+    }
+
     @if (activeTab() === 'payments') {
     <section class="summary-grid" aria-label="Resumen principal">
       <article class="metric-card primary">

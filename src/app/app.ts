@@ -519,7 +519,15 @@ export class App {
 
   constructor() {
     effect(() => {
-      this.browserStorage()?.setItem(STORAGE_KEY, JSON.stringify(this.entries()));
+      const current = this.entries();
+
+      // Solo persistimos una lista vacía si la API confirmó que no hay entradas.
+      // Si la API falló, conservamos la caché anterior en vez de borrarla.
+      if (current.length === 0 && this.apiState() !== 'online') {
+        return;
+      }
+
+      this.browserStorage()?.setItem(STORAGE_KEY, JSON.stringify(current));
     });
 
     effect(() => {
@@ -1398,6 +1406,9 @@ export class App {
   private saveAuthSession(session: AuthSession): void {
     this.authSession.set(session);
     this.authChecking.set(false);
+    // El login acaba de responder, así que la API está accesible: igual que en
+    // validateStoredSession(), evita que el aviso de "sin conexión" parpadee.
+    this.apiState.set('online');
     this.authTokenStore.set(session.token, session.tokenType || 'Bearer');
     this.browserStorage()?.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
     this.loadEntriesFromApi();
